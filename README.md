@@ -1,2 +1,2 @@
 # Intersection management using RL
-In this repository, we are going to come up with a RL model, that manages the lights of the intersections in order to optimize the time needed to travel across the city
+In this repository, we are going to come up with a RL model, that manages the lights of the intersections in order to optimize the time needed to travel across the city.
