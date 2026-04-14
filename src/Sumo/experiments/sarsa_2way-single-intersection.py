@@ -13,8 +13,8 @@ else:
 import traci
 from linear_rl.true_online_sarsa import TrueOnlineSarsaLambda
 
-from sumo_rl import SumoEnvironment
-from sumo_rl.util.gen_route import write_route_file
+from src.Sumo.sumo_rl import SumoEnvironment
+from src.Sumo.sumo_rl.util.gen_route import write_route_file
 
 
 if __name__ == "__main__":

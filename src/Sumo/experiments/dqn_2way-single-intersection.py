@@ -12,7 +12,7 @@ else:
     sys.exit("Please declare the environment variable 'SUMO_HOME'")
 import traci
 
-from sumo_rl import SumoEnvironment
+from src.Sumo.sumo_rl import SumoEnvironment
 
 
 if __name__ == "__main__":
