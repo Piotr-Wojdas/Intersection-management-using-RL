@@ -16,7 +16,7 @@ from ray.rllib.algorithms.ppo import PPOConfig
 from ray.rllib.env.wrappers.pettingzoo_env import ParallelPettingZooEnv
 from ray.tune.registry import register_env
 
-import sumo_rl
+import src.Sumo.sumo_rl as sumo_rl
 
 
 if __name__ == "__main__":
