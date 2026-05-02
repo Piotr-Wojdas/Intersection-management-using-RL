@@ -4,7 +4,19 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "gymnasium>=0.28.0",
+    "pettingzoo>=1.24.3",
+    "numpy",
+    "pandas",
+    "pillow",
+    "sumolib>=1.14.0",
+    "traci>=1.14.0",
+    "pyvirtualdisplay",
+    "stable-baselines3",
+    "tqdm",
+    "torch"
+]
 
 [dependency-groups]
 dev = [
