@@ -13,9 +13,9 @@ else:
 
 import traci
 
-import sumo_rl
-from sumo_rl.agents import QLAgent
-from sumo_rl.exploration import EpsilonGreedy
+import src.Sumo.sumo_rl as sumo_rl
+from src.Sumo.sumo_rl.agents import QLAgent
+from src.Sumo.sumo_rl.exploration import EpsilonGreedy
 
 
 if __name__ == "__main__":

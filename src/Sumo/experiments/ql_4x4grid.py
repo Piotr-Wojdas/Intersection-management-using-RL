@@ -11,9 +11,9 @@ if "SUMO_HOME" in os.environ:
 else:
     sys.exit("Please declare the environment variable 'SUMO_HOME'")
 
-from sumo_rl import SumoEnvironment
-from sumo_rl.agents import QLAgent
-from sumo_rl.exploration import EpsilonGreedy
+from src.Sumo.sumo_rl import SumoEnvironment
+from src.Sumo.sumo_rl.agents import QLAgent
+from src.Sumo.sumo_rl.exploration import EpsilonGreedy
 
 
 if __name__ == "__main__":
@@ -28,9 +28,6 @@ if __name__ == "__main__":
         route_file="sumo_rl/nets/4x4-Lucas/4x4c1c2c1c2.rou.xml",
         use_gui=False,
         num_seconds=80000,
-        reward_fn=["diff-waiting-time", "average-speed"],
-        reward_weights=[1, 0.1],
-        enforce_max_green=True,
         min_green=5,
         delta_time=5,
     )
@@ -61,7 +58,6 @@ if __name__ == "__main__":
                 actions = {ts: ql_agents[ts].act() for ts in ql_agents.keys()}
 
                 s, r, done, info = env.step(action=actions)
-                print(r)
 
                 for agent_id in s.keys():
                     ql_agents[agent_id].learn(next_state=env.encode(s[agent_id], agent_id), reward=r[agent_id])

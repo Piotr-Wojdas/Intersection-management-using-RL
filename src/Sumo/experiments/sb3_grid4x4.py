@@ -12,7 +12,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import VecMonitor
 from tqdm import trange
 
-import sumo_rl
+import src.Sumo.sumo_rl as sumo_rl
 
 
 if __name__ == "__main__":

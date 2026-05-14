@@ -6,7 +6,7 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-import sumo_rl
+import src.Sumo.sumo_rl as sumo_rl
 
 
 project = "SUMO-RL"

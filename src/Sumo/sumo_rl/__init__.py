@@ -1,13 +1,13 @@
 """Import all the necessary modules for the sumo_rl package."""
 
-from sumo_rl.environment.env import (
+from src.Sumo.sumo_rl.environment.env import (
     ObservationFunction,
     SumoEnvironment,
     TrafficSignal,
     env,
     parallel_env,
 )
-from sumo_rl.environment.resco_envs import (
+from src.Sumo.sumo_rl.environment.resco_envs import (
     arterial4x4,
     cologne1,
     cologne3,

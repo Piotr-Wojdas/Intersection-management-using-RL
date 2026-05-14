@@ -10,9 +10,9 @@ if "SUMO_HOME" in os.environ:
 else:
     sys.exit("Please declare the environment variable 'SUMO_HOME'")
 
-from sumo_rl import SumoEnvironment
-from sumo_rl.agents import QLAgent
-from sumo_rl.exploration import EpsilonGreedy
+from src.Sumo.sumo_rl import SumoEnvironment
+from src.Sumo.sumo_rl.agents import QLAgent
+from src.Sumo.sumo_rl.exploration import EpsilonGreedy
 
 
 if __name__ == "__main__":
