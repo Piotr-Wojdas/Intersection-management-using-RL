@@ -15,7 +15,7 @@ dependencies = [
     "pyvirtualdisplay",
     "stable-baselines3",
     "tqdm",
-    "torch"
+    "torch",
 ]
 
 [dependency-groups]
