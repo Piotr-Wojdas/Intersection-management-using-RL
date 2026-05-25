@@ -1,17 +1,6 @@
-import os
-import sys
-from datetime import datetime
-
 import fire
 
 
-if "SUMO_HOME" in os.environ:
-    tools = os.path.join(os.environ["SUMO_HOME"], "tools")
-    sys.path.append(tools)
-else:
-    sys.exit("Please declare the environment variable 'SUMO_HOME'")
-
-import traci
 from linear_rl.true_online_sarsa import TrueOnlineSarsaLambda
 
 from src.Sumo.sumo_rl import SumoEnvironment
@@ -61,7 +50,11 @@ def run(use_gui=True, runs=1):
 
                 for ts_id in next_obs.keys():
                     agents[ts_id].learn(
-                        state=obs[ts_id], action=actions[ts_id], reward=r[ts_id], next_state=next_obs[ts_id], done=done[ts_id]
+                        state=obs[ts_id],
+                        action=actions[ts_id],
+                        reward=r[ts_id],
+                        next_state=next_obs[ts_id],
+                        done=done[ts_id],
                     )
                     obs[ts_id] = next_obs[ts_id]
 

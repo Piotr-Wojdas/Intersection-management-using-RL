@@ -1,16 +1,3 @@
-import argparse
-import os
-import sys
-
-import pandas as pd
-
-
-if "SUMO_HOME" in os.environ:
-    tools = os.path.join(os.environ["SUMO_HOME"], "tools")
-    sys.path.append(tools)
-else:
-    sys.exit("Please declare the environment variable 'SUMO_HOME'")
-
 from src.Sumo.sumo_rl import SumoEnvironment
 from src.Sumo.sumo_rl.agents import QLAgent
 from src.Sumo.sumo_rl.exploration import EpsilonGreedy
@@ -41,7 +28,9 @@ if __name__ == "__main__":
                 action_space=env.action_space,
                 alpha=alpha,
                 gamma=gamma,
-                exploration_strategy=EpsilonGreedy(initial_epsilon=0.05, min_epsilon=0.005, decay=decay),
+                exploration_strategy=EpsilonGreedy(
+                    initial_epsilon=0.05, min_epsilon=0.005, decay=decay
+                ),
             )
             for ts in env.ts_ids
         }
@@ -60,7 +49,9 @@ if __name__ == "__main__":
                 s, r, done, info = env.step(action=actions)
 
                 for agent_id in s.keys():
-                    ql_agents[agent_id].learn(next_state=env.encode(s[agent_id], agent_id), reward=r[agent_id])
+                    ql_agents[agent_id].learn(
+                        next_state=env.encode(s[agent_id], agent_id), reward=r[agent_id]
+                    )
 
             env.save_csv(f"outputs/4x4/ql-4x4grid_run{run}", episode)
 

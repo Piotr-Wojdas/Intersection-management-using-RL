@@ -1,14 +1,5 @@
-import os
-import sys
-
 import fire
 
-
-if "SUMO_HOME" in os.environ:
-    tools = os.path.join(os.environ["SUMO_HOME"], "tools")
-    sys.path.append(tools)
-else:
-    sys.exit("Please declare the environment variable 'SUMO_HOME'")
 
 from linear_rl.true_online_sarsa import TrueOnlineSarsaLambda
 
@@ -18,7 +9,12 @@ from src.Sumo.sumo_rl import cologne8
 def run(use_gui=False, episodes=50):
     fixed_tl = False
 
-    env = cologne8(out_csv_name="outputs/cologne8/test", use_gui=use_gui, yellow_time=2, fixed_ts=fixed_tl)
+    env = cologne8(
+        out_csv_name="outputs/cologne8/test",
+        use_gui=use_gui,
+        yellow_time=2,
+        fixed_ts=fixed_tl,
+    )
     env.reset()
 
     agents = {
@@ -36,7 +32,6 @@ def run(use_gui=False, episodes=50):
 
     for ep in range(1, episodes + 1):
         obs, _ = env.reset()
-        done = {agent: False for agent in env.agents}
 
         if fixed_tl:
             while env.agents:

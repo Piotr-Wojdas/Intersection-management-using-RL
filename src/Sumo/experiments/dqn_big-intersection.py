@@ -1,16 +1,3 @@
-import os
-import sys
-
-import gymnasium as gym
-
-
-if "SUMO_HOME" in os.environ:
-    tools = os.path.join(os.environ["SUMO_HOME"], "tools")
-    sys.path.append(tools)
-else:
-    sys.exit("Please declare the environment variable 'SUMO_HOME'")
-import numpy as np
-import traci
 from stable_baselines3.dqn.dqn import DQN
 
 from src.Sumo.sumo_rl import SumoEnvironment

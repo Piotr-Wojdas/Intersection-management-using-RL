@@ -1,16 +1,10 @@
 """SUMO Environment for Traffic Signal Control."""
 
 import os
-import sys
 from pathlib import Path
 from typing import Callable, List, Optional, Tuple, Union
 
-
-if "SUMO_HOME" in os.environ:
-    tools = os.path.join(os.environ["SUMO_HOME"], "tools")
-    sys.path.append(tools)
-else:
-    raise ImportError("Please declare the environment variable 'SUMO_HOME'")
+# Central SUMO setup (ensure SUMO_HOME/tools on sys.path)
 import gymnasium as gym
 import numpy as np
 import pandas as pd
@@ -122,10 +116,13 @@ class SumoEnvironment(gym.Env):
         render_mode: Optional[str] = None,
     ) -> None:
         """Initialize the environment."""
-        assert render_mode is None or render_mode in self.metadata["render_modes"], "Invalid render mode."
+        assert (
+            render_mode is None or render_mode in self.metadata["render_modes"]
+        ), "Invalid render mode."
         self.render_mode = render_mode
         self.virtual_display = virtual_display
         self.disp = None
+        self.sumo = None
 
         self._net = net_file
         self._route = route_file
@@ -135,8 +132,12 @@ class SumoEnvironment(gym.Env):
         else:
             self._sumo_binary = sumolib.checkBinary("sumo")
 
-        assert delta_time > yellow_time, "Time between actions must be at least greater than yellow time."
-        assert max_green > min_green, "Max green time must be greater than min green time."
+        assert (
+            delta_time > yellow_time
+        ), "Time between actions must be at least greater than yellow time."
+        assert (
+            max_green > min_green
+        ), "Max green time must be greater than min green time."
 
         self.begin_time = begin_time
         self.sim_max_time = begin_time + num_seconds
@@ -161,13 +162,17 @@ class SumoEnvironment(gym.Env):
         self.add_per_agent_info = add_per_agent_info
         self.label = str(SumoEnvironment.CONNECTION_LABEL)
         SumoEnvironment.CONNECTION_LABEL += 1
-        self.sumo = None
 
         if LIBSUMO:
-            traci.start([sumolib.checkBinary("sumo"), "-n", self._net])  # Start only to retrieve traffic light information
+            traci.start(
+                [sumolib.checkBinary("sumo"), "-n", self._net]
+            )  # Start only to retrieve traffic light information
             conn = traci
         else:
-            traci.start([sumolib.checkBinary("sumo"), "-n", self._net], label="init_connection" + self.label)
+            traci.start(
+                [sumolib.checkBinary("sumo"), "-n", self._net],
+                label="init_connection" + self.label,
+            )
             conn = traci.getConnection("init_connection" + self.label)
 
         if ts_ids is None:
@@ -224,7 +229,7 @@ class SumoEnvironment(gym.Env):
             str(self.time_to_teleport),
         ]
         if self.begin_time > 0:
-            sumo_cmd.append(f"-b {self.begin_time}")
+            sumo_cmd.extend(["-b", str(self.begin_time)])
         if self.sumo_seed == "random":
             sumo_cmd.append("--random")
         else:
@@ -236,7 +241,12 @@ class SumoEnvironment(gym.Env):
         if self.use_gui or self.render_mode is not None:
             sumo_cmd.extend(["--start", "--quit-on-end"])
             if self.render_mode == "rgb_array":
-                sumo_cmd.extend(["--window-size", f"{self.virtual_display[0]},{self.virtual_display[1]}"])
+                sumo_cmd.extend(
+                    [
+                        "--window-size",
+                        f"{self.virtual_display[0]},{self.virtual_display[1]}",
+                    ]
+                )
                 from pyvirtualdisplay.smartdisplay import SmartDisplay
 
                 print("Creating a virtual display.")
@@ -252,7 +262,9 @@ class SumoEnvironment(gym.Env):
             self.sumo = traci.getConnection(self.label)
 
         if self.use_gui or self.render_mode is not None:
-            if "DEFAULT_VIEW" not in dir(traci.gui):  # traci.gui.DEFAULT_VIEW is not defined in libsumo
+            if "DEFAULT_VIEW" not in dir(
+                traci.gui
+            ):  # traci.gui.DEFAULT_VIEW is not defined in libsumo
                 traci.gui.DEFAULT_VIEW = "View #0"
             self.sumo.gui.setSchema(traci.gui.DEFAULT_VIEW, "real world")
 
@@ -310,7 +322,13 @@ class SumoEnvironment(gym.Env):
         info = self._compute_info()
 
         if self.single_agent:
-            return observations[self.ts_ids[0]], rewards[self.ts_ids[0]], terminated, truncated, info
+            return (
+                observations[self.ts_ids[0]],
+                rewards[self.ts_ids[0]],
+                terminated,
+                truncated,
+                info,
+            )
         else:
             return observations, rewards, dones, info
 
@@ -374,7 +392,11 @@ class SumoEnvironment(gym.Env):
                 if self.traffic_signals[ts].time_to_act or self.fixed_ts
             }
         )
-        return {ts: self.rewards[ts] for ts in self.rewards.keys() if self.traffic_signals[ts].time_to_act or self.fixed_ts}
+        return {
+            ts: self.rewards[ts]
+            for ts in self.rewards.keys()
+            if self.traffic_signals[ts].time_to_act or self.fixed_ts
+        }
 
     @property
     def observation_space(self):
@@ -425,7 +447,9 @@ class SumoEnvironment(gym.Env):
     def _get_system_info(self):
         vehicles = self.sumo.vehicle.getIDList()
         speeds = [self.sumo.vehicle.getSpeed(vehicle) for vehicle in vehicles]
-        waiting_times = [self.sumo.vehicle.getWaitingTime(vehicle) for vehicle in vehicles]
+        waiting_times = [
+            self.sumo.vehicle.getWaitingTime(vehicle) for vehicle in vehicles
+        ]
         num_backlogged_vehicles = len(self.sumo.simulation.getPendingVehicles())
         return {
             "system_total_running": len(vehicles),
@@ -437,16 +461,21 @@ class SumoEnvironment(gym.Env):
             "system_total_departed": self.num_departed_vehicles,
             "system_total_teleported": self.num_teleported_vehicles,
             "system_total_waiting_time": sum(waiting_times),
-            "system_mean_waiting_time": 0.0 if len(vehicles) == 0 else np.mean(waiting_times),
+            "system_mean_waiting_time": 0.0
+            if len(vehicles) == 0
+            else np.mean(waiting_times),
             "system_mean_speed": 0.0 if len(vehicles) == 0 else np.mean(speeds),
         }
 
     def _get_per_agent_info(self):
         stopped = [self.traffic_signals[ts].get_total_queued() for ts in self.ts_ids]
         accumulated_waiting_time = [
-            sum(self.traffic_signals[ts].get_accumulated_waiting_time_per_lane()) for ts in self.ts_ids
+            sum(self.traffic_signals[ts].get_accumulated_waiting_time_per_lane())
+            for ts in self.ts_ids
         ]
-        average_speed = [self.traffic_signals[ts].get_average_speed() for ts in self.ts_ids]
+        average_speed = [
+            self.traffic_signals[ts].get_average_speed() for ts in self.ts_ids
+        ]
         info = {}
         for i, ts in enumerate(self.ts_ids):
             info[f"{ts}_stopped"] = stopped[i]
@@ -458,7 +487,7 @@ class SumoEnvironment(gym.Env):
 
     def close(self):
         """Close the environment and stop the SUMO simulation."""
-        if self.sumo is None:
+        if not hasattr(self, "sumo") or self.sumo is None:
             return
 
         if not LIBSUMO:
@@ -500,15 +529,22 @@ class SumoEnvironment(gym.Env):
         if out_csv_name is not None:
             df = pd.DataFrame(self.metrics)
             Path(Path(out_csv_name).parent).mkdir(parents=True, exist_ok=True)
-            df.to_csv(out_csv_name + f"_conn{self.label}_ep{episode}" + ".csv", index=False)
+            df.to_csv(
+                out_csv_name + f"_conn{self.label}_ep{episode}" + ".csv", index=False
+            )
 
     # Below functions are for discrete state space
 
     def encode(self, state, ts_id):
         """Encode the state of the traffic signal into a hashable object."""
-        phase = int(np.where(state[: self.traffic_signals[ts_id].num_green_phases] == 1)[0])
+        phase = int(
+            np.where(state[: self.traffic_signals[ts_id].num_green_phases] == 1)[0]
+        )
         min_green = state[self.traffic_signals[ts_id].num_green_phases]
-        density_queue = [self._discretize_density(d) for d in state[self.traffic_signals[ts_id].num_green_phases + 1 :]]
+        density_queue = [
+            self._discretize_density(d)
+            for d in state[self.traffic_signals[ts_id].num_green_phases + 1 :]
+        ]
         # tuples are hashable and can be used as key in python dictionary
         return tuple([phase, min_green] + density_queue)
 
@@ -524,7 +560,11 @@ class SumoEnvironmentPZ(AECEnv, EzPickle):
     The arguments are the same as for :py:class:`sumo_rl.environment.env.SumoEnvironment`.
     """
 
-    metadata = {"render.modes": ["human", "rgb_array"], "name": "sumo_rl_v0", "is_parallelizable": True}
+    metadata = {
+        "render.modes": ["human", "rgb_array"],
+        "name": "sumo_rl_v0",
+        "is_parallelizable": True,
+    }
 
     def __init__(self, **kwargs):
         """Initialize the environment."""
@@ -541,7 +581,9 @@ class SumoEnvironmentPZ(AECEnv, EzPickle):
         self.agent_selection = self._agent_selector.reset()
         # spaces
         self.action_spaces = {a: self.env.action_spaces(a) for a in self.agents}
-        self.observation_spaces = {a: self.env.observation_spaces(a) for a in self.agents}
+        self.observation_spaces = {
+            a: self.env.observation_spaces(a) for a in self.agents
+        }
 
         # dicts
         self.rewards = {a: 0 for a in self.agents}
@@ -600,7 +642,10 @@ class SumoEnvironmentPZ(AECEnv, EzPickle):
 
     def step(self, action):
         """Step the environment."""
-        if self.truncations[self.agent_selection] or self.terminations[self.agent_selection]:
+        if (
+            self.truncations[self.agent_selection]
+            or self.terminations[self.agent_selection]
+        ):
             return self._was_dead_step(action)
         agent = self.agent_selection
         if not self.action_spaces[agent].contains(action):

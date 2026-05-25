@@ -1,15 +1,8 @@
 """This module contains the TrafficSignal class, which represents a traffic signal in the simulation."""
 
-import os
-import sys
 from typing import Callable, List, Union
 
-
-if "SUMO_HOME" in os.environ:
-    tools = os.path.join(os.environ["SUMO_HOME"], "tools")
-    sys.path.append(tools)
-else:
-    raise ImportError("Please declare the environment variable 'SUMO_HOME'")
+# Central SUMO setup (ensure SUMO_HOME/tools on sys.path)
 import numpy as np
 from gymnasium import spaces
 
@@ -91,9 +84,12 @@ class TrafficSignal:
         self.reward_weights = reward_weights
         self.sumo = sumo
 
-        if type(self.reward_fn) is list:
+        if isinstance(self.reward_fn, list):
             self.reward_dim = len(self.reward_fn)
-            self.reward_list = [self._get_reward_fn_from_string(reward_fn) for reward_fn in self.reward_fn]
+            self.reward_list = [
+                self._get_reward_fn_from_string(reward_fn)
+                for reward_fn in self.reward_fn
+            ]
         else:
             self.reward_dim = 1
             self.reward_list = [self._get_reward_fn_from_string(self.reward_fn)]
@@ -101,7 +97,9 @@ class TrafficSignal:
         if self.reward_weights is not None:
             self.reward_dim = 1  # Since it will be scalarized
 
-        self.reward_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.reward_dim,), dtype=np.float32)
+        self.reward_space = spaces.Box(
+            low=-np.inf, high=np.inf, shape=(self.reward_dim,), dtype=np.float32
+        )
 
         self.observation_fn = self.env.observation_class(self)
 
@@ -110,25 +108,45 @@ class TrafficSignal:
         self.lanes = list(
             dict.fromkeys(self.sumo.trafficlight.getControlledLanes(self.id))
         )  # Remove duplicates and keep order
-        self.out_lanes = [link[0][1] for link in self.sumo.trafficlight.getControlledLinks(self.id) if link]
+        self.out_lanes = [
+            link[0][1]
+            for link in self.sumo.trafficlight.getControlledLinks(self.id)
+            if link
+        ]
         self.out_lanes = list(set(self.out_lanes))
-        self.lanes_length = {lane: self.sumo.lane.getLength(lane) for lane in self.lanes + self.out_lanes}
+        self.lanes_length = {
+            lane: self.sumo.lane.getLength(lane) for lane in self.lanes + self.out_lanes
+        }
 
         self.observation_space = self.observation_fn.observation_space()
         self.action_space = spaces.Discrete(self.num_green_phases)
 
+        # Read standing-vehicle penalty params (fallback to defaults if params missing)
+        try:
+            from src.params import STANDING_WAIT_THRESHOLD, STANDING_PENALTY_WEIGHT
+        except Exception:
+            STANDING_WAIT_THRESHOLD = 30
+            STANDING_PENALTY_WEIGHT = 1.0
+
+        self._standing_wait_threshold = STANDING_WAIT_THRESHOLD
+        self._standing_penalty_weight = STANDING_PENALTY_WEIGHT
+
     def _get_reward_fn_from_string(self, reward_fn):
-        if type(reward_fn) is str:
+        if isinstance(reward_fn, str):
             if reward_fn in TrafficSignal.reward_fns.keys():
                 return TrafficSignal.reward_fns[reward_fn]
             else:
-                raise NotImplementedError(f"Reward function {reward_fn} not implemented")
+                raise NotImplementedError(
+                    f"Reward function {reward_fn} not implemented"
+                )
         return reward_fn
 
     def _build_phases(self):
         phases = self.sumo.trafficlight.getAllProgramLogics(self.id)[0].phases
         if self.env.fixed_ts:
-            self.num_green_phases = len(phases) // 2  # Number of green phases == number of phases (green+yellow) divided by 2
+            self.num_green_phases = (
+                len(phases) // 2
+            )  # Number of green phases == number of phases (green+yellow) divided by 2
             return
 
         self.green_phases = []
@@ -136,7 +154,9 @@ class TrafficSignal:
         for phase in phases:
             state = phase.state
             if "y" not in state and (state.count("r") + state.count("s") != len(state)):
-                self.green_phases.append(self.sumo.trafficlight.Phase(60, state))
+                self.green_phases.append(
+                    self.sumo.trafficlight.Phase(self.min_green, state)
+                )
         self.num_green_phases = len(self.green_phases)
         self.all_phases = self.green_phases.copy()
 
@@ -146,12 +166,16 @@ class TrafficSignal:
                     continue
                 yellow_state = ""
                 for s in range(len(p1.state)):
-                    if (p1.state[s] == "G" or p1.state[s] == "g") and (p2.state[s] == "r" or p2.state[s] == "s"):
+                    if (p1.state[s] == "G" or p1.state[s] == "g") and (
+                        p2.state[s] == "r" or p2.state[s] == "s"
+                    ):
                         yellow_state += "y"
                     else:
                         yellow_state += p1.state[s]
                 self.yellow_dict[(i, j)] = len(self.all_phases)
-                self.all_phases.append(self.sumo.trafficlight.Phase(self.yellow_time, yellow_state))
+                self.all_phases.append(
+                    self.sumo.trafficlight.Phase(self.yellow_time, yellow_state)
+                )
 
         programs = self.sumo.trafficlight.getAllProgramLogics(self.id)
         logic = programs[0]
@@ -173,7 +197,9 @@ class TrafficSignal:
         self.time_since_last_phase_change += 1
         if self.is_yellow and self.time_since_last_phase_change == self.yellow_time:
             # self.sumo.trafficlight.setPhase(self.id, self.green_phase)
-            self.sumo.trafficlight.setRedYellowGreenState(self.id, self.all_phases[self.green_phase].state)
+            self.sumo.trafficlight.setRedYellowGreenState(
+                self.id, self.all_phases[self.green_phase].state
+            )
             self.is_yellow = False
 
     def set_next_phase(self, new_phase: int):
@@ -185,17 +211,29 @@ class TrafficSignal:
         new_phase = int(new_phase)
 
         # Ensure max green time is enforced if needed
-        if self.enforce_max_green and new_phase == self.green_phase and self.time_since_last_phase_change >= self.max_green:
-            new_phase = (self.green_phase + 1) % self.num_green_phases  # Next phase is activated
+        if (
+            self.enforce_max_green
+            and new_phase == self.green_phase
+            and self.time_since_last_phase_change >= self.max_green
+        ):
+            new_phase = (
+                self.green_phase + 1
+            ) % self.num_green_phases  # Next phase is activated
 
-        if self.green_phase == new_phase or self.time_since_last_phase_change < self.yellow_time + self.min_green:
+        if (
+            self.green_phase == new_phase
+            or self.time_since_last_phase_change < self.yellow_time + self.min_green
+        ):
             # self.sumo.trafficlight.setPhase(self.id, self.green_phase)
-            self.sumo.trafficlight.setRedYellowGreenState(self.id, self.all_phases[self.green_phase].state)
+            self.sumo.trafficlight.setRedYellowGreenState(
+                self.id, self.all_phases[self.green_phase].state
+            )
             self.next_action_time = self.env.sim_step + self.delta_time
         else:
             # self.sumo.trafficlight.setPhase(self.id, self.yellow_dict[(self.green_phase, new_phase)])  # turns yellow
             self.sumo.trafficlight.setRedYellowGreenState(
-                self.id, self.all_phases[self.yellow_dict[(self.green_phase, new_phase)]].state
+                self.id,
+                self.all_phases[self.yellow_dict[(self.green_phase, new_phase)]].state,
             )
             self.green_phase = new_phase
             self.next_action_time = self.env.sim_step + self.delta_time
@@ -208,12 +246,24 @@ class TrafficSignal:
 
     def compute_reward(self) -> Union[float, np.ndarray]:
         """Computes the reward of the traffic signal. If it is a list of rewards, it returns a numpy array."""
+        # Compute base reward (scalar or vector)
         if self.reward_dim == 1:
-            self.last_reward = self.reward_list[0](self)
+            base = float(self.reward_list[0](self))
         else:
-            self.last_reward = np.array([reward_fn(self) for reward_fn in self.reward_list], dtype=np.float32)
+            base = np.array(
+                [reward_fn(self) for reward_fn in self.reward_list], dtype=np.float32
+            )
             if self.reward_weights is not None:
-                self.last_reward = np.dot(self.last_reward, self.reward_weights)  # Linear combination of rewards
+                base = float(np.dot(base, self.reward_weights))
+
+        # Compute standing-vehicle penalty (scalar)
+        standing_pen = float(self._standing_penalty())
+
+        # Combine
+        if isinstance(base, np.ndarray):
+            self.last_reward = base - standing_pen
+        else:
+            self.last_reward = base + standing_pen
 
         return self.last_reward
 
@@ -235,9 +285,28 @@ class TrafficSignal:
         self.last_ts_waiting_time = ts_wait
         return reward
 
+    def _standing_penalty(self):
+        """Penalty proportional to the number of vehicles whose waiting time exceeds threshold."""
+        count = 0
+        for lane in self.lanes:
+            for veh in self.sumo.lane.getLastStepVehicleIDs(lane):
+                try:
+                    wt = float(self.sumo.vehicle.getWaitingTime(veh))
+                except Exception:
+                    wt = 0.0
+                if wt >= self._standing_wait_threshold:
+                    count += 1
+        return -self._standing_penalty_weight * count
+
     def _observation_fn_default(self):
-        phase_id = [1 if self.green_phase == i else 0 for i in range(self.num_green_phases)]  # one-hot encoding
-        min_green = [0 if self.time_since_last_phase_change < self.min_green + self.yellow_time else 1]
+        phase_id = [
+            1 if self.green_phase == i else 0 for i in range(self.num_green_phases)
+        ]  # one-hot encoding
+        min_green = [
+            0
+            if self.time_since_last_phase_change < self.min_green + self.yellow_time
+            else 1
+        ]
         density = self.get_lanes_density()
         queue = self.get_lanes_queue()
         observation = np.array(phase_id + min_green + density + queue, dtype=np.float32)
@@ -260,7 +329,11 @@ class TrafficSignal:
                     self.env.vehicles[veh] = {veh_lane: acc}
                 else:
                     self.env.vehicles[veh][veh_lane] = acc - sum(
-                        [self.env.vehicles[veh][lane] for lane in self.env.vehicles[veh].keys() if lane != veh_lane]
+                        [
+                            self.env.vehicles[veh][lane]
+                            for lane in self.env.vehicles[veh].keys()
+                            if lane != veh_lane
+                        ]
                     )
                 wait_time += self.env.vehicles[veh][veh_lane]
             wait_time_per_lane.append(wait_time)
@@ -276,20 +349,25 @@ class TrafficSignal:
         if len(vehs) == 0:
             return 1.0
         for v in vehs:
-            avg_speed += self.sumo.vehicle.getSpeed(v) / self.sumo.vehicle.getAllowedSpeed(v)
+            avg_speed += self.sumo.vehicle.getSpeed(
+                v
+            ) / self.sumo.vehicle.getAllowedSpeed(v)
         return avg_speed / len(vehs)
 
     def get_pressure(self):
         """Returns the pressure (#veh leaving - #veh approaching) of the intersection."""
-        return sum(self.sumo.lane.getLastStepVehicleNumber(lane) for lane in self.out_lanes) - sum(
-            self.sumo.lane.getLastStepVehicleNumber(lane) for lane in self.lanes
-        )
+        return sum(
+            self.sumo.lane.getLastStepVehicleNumber(lane) for lane in self.out_lanes
+        ) - sum(self.sumo.lane.getLastStepVehicleNumber(lane) for lane in self.lanes)
 
     def get_out_lanes_density(self) -> List[float]:
         """Returns the density of the vehicles in the outgoing lanes of the intersection."""
         lanes_density = [
             self.sumo.lane.getLastStepVehicleNumber(lane)
-            / (self.lanes_length[lane] / (self.MIN_GAP + self.sumo.lane.getLastStepLength(lane)))
+            / (
+                self.lanes_length[lane]
+                / (self.MIN_GAP + self.sumo.lane.getLastStepLength(lane))
+            )
             for lane in self.out_lanes
         ]
         return [min(1, density) for density in lanes_density]
@@ -301,7 +379,10 @@ class TrafficSignal:
         """
         lanes_density = [
             self.sumo.lane.getLastStepVehicleNumber(lane)
-            / (self.lanes_length[lane] / (self.MIN_GAP + self.sumo.lane.getLastStepLength(lane)))
+            / (
+                self.lanes_length[lane]
+                / (self.MIN_GAP + self.sumo.lane.getLastStepLength(lane))
+            )
             for lane in self.lanes
         ]
         return [min(1, density) for density in lanes_density]
@@ -313,7 +394,10 @@ class TrafficSignal:
         """
         lanes_queue = [
             self.sumo.lane.getLastStepHaltingNumber(lane)
-            / (self.lanes_length[lane] / (self.MIN_GAP + self.sumo.lane.getLastStepLength(lane)))
+            / (
+                self.lanes_length[lane]
+                / (self.MIN_GAP + self.sumo.lane.getLastStepLength(lane))
+            )
             for lane in self.lanes
         ]
         return [min(1, queue) for queue in lanes_queue]
