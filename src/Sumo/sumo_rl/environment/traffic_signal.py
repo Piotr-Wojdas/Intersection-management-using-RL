@@ -12,9 +12,8 @@ class TrafficSignal:
 
     It is responsible for retrieving information and changing the traffic phase using the Traci API.
 
-    IMPORTANT: It assumes that the traffic phases defined in the .net file are of the form:
-        [green_phase, yellow_phase, green_phase, yellow_phase, ...]
-    Currently it is not supporting all-red phases (but should be easy to implement it).
+    IMPORTANT: It assumes that the traffic phases defined in the .net file are green phases.
+    The environment switches directly between those green phases.
 
     # Observation Space
     The default observation for each traffic signal agent is a vector:
@@ -75,7 +74,6 @@ class TrafficSignal:
         self.max_green = max_green
         self.enforce_max_green = enforce_max_green
         self.green_phase = 0
-        self.is_yellow = False
         self.time_since_last_phase_change = 0
         self.next_action_time = begin_time
         self.last_ts_waiting_time = 0.0
@@ -123,13 +121,28 @@ class TrafficSignal:
 
         # Read standing-vehicle penalty params (fallback to defaults if params missing)
         try:
-            from src.params import STANDING_WAIT_THRESHOLD, STANDING_PENALTY_WEIGHT
+            from src.params import (
+                PENDING_VEHICLE_PENALTY_WEIGHT,
+                QUEUE_PENALTY_WEIGHT,
+                STANDING_PENALTY_WEIGHT,
+                STANDING_WAIT_THRESHOLD,
+                EXPONENTIAL_WAIT_PENALTY,
+                EXP_WAIT_PENALTY_SCALE,
+            )
         except Exception:
-            STANDING_WAIT_THRESHOLD = 30
-            STANDING_PENALTY_WEIGHT = 1.0
+            STANDING_WAIT_THRESHOLD = 20
+            STANDING_PENALTY_WEIGHT = 0.5
+            PENDING_VEHICLE_PENALTY_WEIGHT = 0.1
+            QUEUE_PENALTY_WEIGHT = 0.05
+            EXPONENTIAL_WAIT_PENALTY = False
+            EXP_WAIT_PENALTY_SCALE = 0.2
 
         self._standing_wait_threshold = STANDING_WAIT_THRESHOLD
         self._standing_penalty_weight = STANDING_PENALTY_WEIGHT
+        self._pending_vehicle_penalty_weight = PENDING_VEHICLE_PENALTY_WEIGHT
+        self._queue_penalty_weight = QUEUE_PENALTY_WEIGHT
+        self._exp_wait_penalty_enabled = EXPONENTIAL_WAIT_PENALTY
+        self._exp_wait_penalty_scale = EXP_WAIT_PENALTY_SCALE
 
     def _get_reward_fn_from_string(self, reward_fn):
         if isinstance(reward_fn, str):
@@ -143,14 +156,7 @@ class TrafficSignal:
 
     def _build_phases(self):
         phases = self.sumo.trafficlight.getAllProgramLogics(self.id)[0].phases
-        if self.env.fixed_ts:
-            self.num_green_phases = (
-                len(phases) // 2
-            )  # Number of green phases == number of phases (green+yellow) divided by 2
-            return
-
         self.green_phases = []
-        self.yellow_dict = {}
         for phase in phases:
             state = phase.state
             if "y" not in state and (state.count("r") + state.count("s") != len(state)):
@@ -160,22 +166,8 @@ class TrafficSignal:
         self.num_green_phases = len(self.green_phases)
         self.all_phases = self.green_phases.copy()
 
-        for i, p1 in enumerate(self.green_phases):
-            for j, p2 in enumerate(self.green_phases):
-                if i == j:
-                    continue
-                yellow_state = ""
-                for s in range(len(p1.state)):
-                    if (p1.state[s] == "G" or p1.state[s] == "g") and (
-                        p2.state[s] == "r" or p2.state[s] == "s"
-                    ):
-                        yellow_state += "y"
-                    else:
-                        yellow_state += p1.state[s]
-                self.yellow_dict[(i, j)] = len(self.all_phases)
-                self.all_phases.append(
-                    self.sumo.trafficlight.Phase(self.yellow_time, yellow_state)
-                )
+        if self.env.fixed_ts:
+            return
 
         programs = self.sumo.trafficlight.getAllProgramLogics(self.id)
         logic = programs[0]
@@ -195,15 +187,9 @@ class TrafficSignal:
         If the traffic signal should act, it will set the next green phase and update the next action time.
         """
         self.time_since_last_phase_change += 1
-        if self.is_yellow and self.time_since_last_phase_change == self.yellow_time:
-            # self.sumo.trafficlight.setPhase(self.id, self.green_phase)
-            self.sumo.trafficlight.setRedYellowGreenState(
-                self.id, self.all_phases[self.green_phase].state
-            )
-            self.is_yellow = False
 
     def set_next_phase(self, new_phase: int):
-        """Sets what will be the next green phase and sets yellow phase if the next phase is different than the current.
+        """Sets what will be the next green phase.
 
         Args:
             new_phase (int): Number between [0 ... num_green_phases]
@@ -222,22 +208,19 @@ class TrafficSignal:
 
         if (
             self.green_phase == new_phase
-            or self.time_since_last_phase_change < self.yellow_time + self.min_green
+            or self.time_since_last_phase_change < self.min_green
         ):
-            # self.sumo.trafficlight.setPhase(self.id, self.green_phase)
             self.sumo.trafficlight.setRedYellowGreenState(
                 self.id, self.all_phases[self.green_phase].state
             )
             self.next_action_time = self.env.sim_step + self.delta_time
         else:
-            # self.sumo.trafficlight.setPhase(self.id, self.yellow_dict[(self.green_phase, new_phase)])  # turns yellow
             self.sumo.trafficlight.setRedYellowGreenState(
                 self.id,
-                self.all_phases[self.yellow_dict[(self.green_phase, new_phase)]].state,
+                self.all_phases[new_phase].state,
             )
             self.green_phase = new_phase
             self.next_action_time = self.env.sim_step + self.delta_time
-            self.is_yellow = True
             self.time_since_last_phase_change = 0
 
     def compute_observation(self):
@@ -248,22 +231,14 @@ class TrafficSignal:
         """Computes the reward of the traffic signal. If it is a list of rewards, it returns a numpy array."""
         # Compute base reward (scalar or vector)
         if self.reward_dim == 1:
-            base = float(self.reward_list[0](self))
+            self.last_reward = float(self.reward_list[0](self))
         else:
             base = np.array(
                 [reward_fn(self) for reward_fn in self.reward_list], dtype=np.float32
             )
             if self.reward_weights is not None:
                 base = float(np.dot(base, self.reward_weights))
-
-        # Compute standing-vehicle penalty (scalar)
-        standing_pen = float(self._standing_penalty())
-
-        # Combine
-        if isinstance(base, np.ndarray):
-            self.last_reward = base - standing_pen
-        else:
-            self.last_reward = base + standing_pen
+            self.last_reward = base
 
         return self.last_reward
 
@@ -285,8 +260,39 @@ class TrafficSignal:
         self.last_ts_waiting_time = ts_wait
         return reward
 
+    def _pending_vehicle_penalty(self):
+        pending = len(self.sumo.simulation.getPendingVehicles())
+        return -self._pending_vehicle_penalty_weight * pending
+
+    def _congestion_aware_reward(self):
+        # Local waiting-time improvement plus penalties for local queue and global backlog.
+        reward = self._diff_waiting_time_reward()
+        reward -= self._queue_penalty_weight * self.get_total_queued()
+        reward += self._standing_penalty()
+        reward += self._starvation_penalty()
+        reward += self._pending_vehicle_penalty()
+        return reward
+
     def _standing_penalty(self):
         """Penalty proportional to the number of vehicles whose waiting time exceeds threshold."""
+        import math
+
+        if self._exp_wait_penalty_enabled:
+            penalty = 0.0
+            for lane in self.lanes:
+                for veh in self.sumo.lane.getLastStepVehicleIDs(lane):
+                    try:
+                        wt = float(self.sumo.vehicle.getWaitingTime(veh))
+                    except Exception:
+                        wt = 0.0
+                    over = max(0.0, wt - self._standing_wait_threshold)
+                    if over > 0:
+                        penalty += (
+                            math.exp(self._exp_wait_penalty_scale * over) - 1.0
+                        ) / 100.0
+            return -self._standing_penalty_weight * penalty
+
+        # Original count-based penalty
         count = 0
         for lane in self.lanes:
             for veh in self.sumo.lane.getLastStepVehicleIDs(lane):
@@ -298,15 +304,27 @@ class TrafficSignal:
                     count += 1
         return -self._standing_penalty_weight * count
 
+    def _starvation_penalty(self):
+        """Penalty for letting one incoming lane wait much longer than the others."""
+        lane_waits = self.get_accumulated_waiting_time_per_lane()
+        if not lane_waits:
+            return 0.0
+
+        worst_wait = max(lane_waits)
+        if worst_wait < self._standing_wait_threshold:
+            return 0.0
+
+        return (
+            -self._standing_penalty_weight
+            * (worst_wait - self._standing_wait_threshold)
+            / 100.0
+        )
+
     def _observation_fn_default(self):
         phase_id = [
             1 if self.green_phase == i else 0 for i in range(self.num_green_phases)
         ]  # one-hot encoding
-        min_green = [
-            0
-            if self.time_since_last_phase_change < self.min_green + self.yellow_time
-            else 1
-        ]
+        min_green = [0 if self.time_since_last_phase_change < self.min_green else 1]
         density = self.get_lanes_density()
         queue = self.get_lanes_queue()
         observation = np.array(phase_id + min_green + density + queue, dtype=np.float32)
@@ -434,4 +452,5 @@ class TrafficSignal:
         "queue": _queue_reward,
         "pressure": _pressure_reward,
         "co2": _co2_reward,
+        "congestion-aware": _congestion_aware_reward,
     }

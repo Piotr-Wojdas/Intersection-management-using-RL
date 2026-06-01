@@ -1,157 +1,148 @@
 import os
-import sys
-import torch
 import time
 
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+import torch
+
+from src.agent_ppo import SharedPPOAgent, pad_observation
+from src.params import (
+    ENV_CONFIG,
+    NET_FILE,
+    ROUTE_FILE,
+    build_eval_log_file,
+    resolve_eval_weights_file,
+)
 from src.Sumo.sumo_rl import SumoEnvironment
-from src.agent_ppo import PPOAgent
 
-# Try to read device / gui preferences from src.params if available
+
 try:
-    from src.params import USE_CUDA_IF_AVAILABLE, DEVICE_OVERRIDE, ENV_CONFIG
+    from src.params import DEVICE_OVERRIDE, USE_CUDA_IF_AVAILABLE
 except Exception:
-    USE_CUDA_IF_AVAILABLE = True
     DEVICE_OVERRIDE = None
-    ENV_CONFIG = {}
-
-if DEVICE_OVERRIDE:
-    device = torch.device(DEVICE_OVERRIDE)
-else:
-    device = torch.device(
-        "cuda" if torch.cuda.is_available() and USE_CUDA_IF_AVAILABLE else "cpu"
-    )
+    USE_CUDA_IF_AVAILABLE = True
 
 
-def play(use_gui: bool | None = None):
-    if use_gui is None:
-        use_gui = bool(ENV_CONFIG.get("use_gui", False))
+def resolve_device():
+    if DEVICE_OVERRIDE is not None:
+        return torch.device(DEVICE_OVERRIDE)
+    if USE_CUDA_IF_AVAILABLE and torch.cuda.is_available():
+        return torch.device("cuda")
+    return torch.device("cpu")
 
-    map_dir = os.path.join(os.path.dirname(__file__), "City_map")
+
+def build_env(use_gui: bool | None = None):
     env_args = dict(ENV_CONFIG)
-    env_args.setdefault("net_file", os.path.join(map_dir, "city_map.net.xml"))
-    env_args.setdefault("route_file", os.path.join(map_dir, "city_map.rou.xml"))
-    env = SumoEnvironment(**env_args)
+    env_args.setdefault("net_file", NET_FILE)
+    env_args.setdefault("route_file", ROUTE_FILE)
+    if use_gui is not None:
+        env_args["use_gui"] = use_gui
+    return SumoEnvironment(**env_args)
 
-    ts_ids = env.ts_ids
 
-    # Create agents and move to device
-    agents = {}
-    for ts in ts_ids:
-        obs_dim = env.observation_spaces(ts).shape[0]
-        act_dim = env.action_spaces(ts).n
+def play(use_gui: bool | None = None, sleep_seconds: float = 0.15):
+    device = resolve_device()
+    env = build_env(use_gui=use_gui)
+    log_file_path = build_eval_log_file()
+    weights_file_path = resolve_eval_weights_file()
+    os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+    log_file = open(log_file_path, "w", encoding="utf-8")
 
-        agents[ts] = PPOAgent(obs_dim, act_dim)
-        if hasattr(agents[ts], "to"):
-            agents[ts].to(device)
-        agents[ts].eval()
+    def log(message=""):
+        print(message)
+        print(message, file=log_file, flush=True)
 
-    # Load trained weights (map to device)
-    model_path = os.path.join(
-        os.path.dirname(__file__), "outputs", "ppo_models_weights.pth"
-    )
-    if os.path.exists(model_path):
-        try:
-            saved_weights = torch.load(model_path, map_location=device)
-        except Exception:
-            saved_weights = torch.load(model_path)
+    try:
+        ts_ids = env.ts_ids
+        ts_to_idx = {ts: idx for idx, ts in enumerate(ts_ids)}
+        obs_dims = {ts: env.observation_spaces(ts).shape[0] for ts in ts_ids}
+        act_dims = {ts: env.action_spaces(ts).n for ts in ts_ids}
+        max_obs_dim = max(obs_dims.values())
+        max_act_dim = max(act_dims.values())
 
-        # If file contains per-ts state_dicts
-        if isinstance(saved_weights, dict) and all(k in saved_weights for k in ts_ids):
-            for ts in ts_ids:
-                try:
-                    agents[ts].load_state_dict(saved_weights[ts])
-                except Exception as e:
-                    print(f"Nie można wczytać wag dla {ts}: {e}")
-            print(f"Pomyślnie wczytano pamięć operacyjną agentów z pliku {model_path}.")
-        else:
-            # Assume single state_dict for all agents
-            for ts in ts_ids:
-                try:
-                    agents[ts].load_state_dict(saved_weights)
-                except Exception as e:
-                    print(f"Nie można wczytać wag do agenta {ts}: {e}")
-            print(
-                f"Wczytano wspólne wagi z pliku {model_path} (próba dopasowania do wszystkich agentów)."
+        agent = SharedPPOAgent(max_obs_dim, max_act_dim, len(ts_ids)).to(device)
+
+        log(f"Plik wag: {weights_file_path}")
+        log(f"Plik logu: {log_file_path}")
+
+        if os.path.exists(weights_file_path):
+            checkpoint = torch.load(weights_file_path, map_location=device)
+            state_dict = (
+                checkpoint.get("model_state_dict", checkpoint)
+                if isinstance(checkpoint, dict)
+                else checkpoint
             )
-    else:
-        print(f"UWAGA: Nie odnaleziono wytrenowanych wag w {model_path}.")
-        print("Agenci użyją losowego 'niemowlęcego' myślenia!")
+            agent.load_state_dict(state_dict)
+            log(f"Wczytano współdzielony model z {weights_file_path}")
+        else:
+            log(
+                f"UWAGA: nie znaleziono wag w {weights_file_path}. Agent startuje losowo."
+            )
 
-    obs_dict = env.reset()
-    if isinstance(obs_dict, tuple):
-        obs_dict = obs_dict[0]
+        obs_dict = env.reset()
+        if isinstance(obs_dict, tuple):
+            obs_dict = obs_dict[0]
 
-    print("\nZaczynamy fizyczną jazdę!")
+        reward_sum = {ts: 0.0 for ts in ts_ids}
+        steps = 0
 
-    # Metrics
-    rewards_sum = {ts: 0.0 for ts in ts_ids}
-    steps = 0
+        log("Start oceny na mapie city_map_2...")
 
-    done = False
-    while not done:
-        actions_dict = {}
-        for ts in ts_ids:
-            obs_ts = torch.tensor(obs_dict[ts], dtype=torch.float32, device=device)
-            obs_in = obs_ts.unsqueeze(0) if obs_ts.dim() == 1 else obs_ts
+        done = False
+        while not done:
+            actions_dict = {}
 
-            with torch.no_grad():
-                logits = agents[ts].actor(obs_in)
-                if logits.dim() > 1:
-                    logits = logits.squeeze(0)
-                action = int(torch.argmax(logits).item())
+            for ts in ts_ids:
+                if ts not in obs_dict:
+                    continue
+
+                obs_ts = torch.tensor(obs_dict[ts], dtype=torch.float32, device=device)
+                obs_ts = pad_observation(obs_ts, max_obs_dim)
+                ts_idx = torch.tensor(ts_to_idx[ts], dtype=torch.long, device=device)
+                valid_action_dim = act_dims[ts]
+
+                with torch.no_grad():
+                    logits, _ = agent._forward(obs_ts, ts_idx)
+                    logits = agent._mask_logits(logits, valid_action_dim)
+                    if logits.dim() > 1:
+                        logits = logits.squeeze(0)
+                    action = int(torch.argmax(logits).item())
                 actions_dict[ts] = action
 
-        # Step environment
-        res = env.step(actions_dict)
-        # Unpack step results robustly for single-agent (5-tuple) and multi-agent (4-tuple)
-        if len(res) == 5:
-            obs_dict, rewards_dict, terminated, truncated, info = res
-            dones_dict = {"__all__": bool(terminated or truncated)}
-        else:
-            obs_dict, rewards_dict, dones_dict, info = res
-
-        # Accumulate rewards (handle dict or scalar)
-        if isinstance(rewards_dict, dict):
-            for ts in ts_ids:
-                rewards_sum[ts] += float(rewards_dict.get(ts, 0.0))
-        else:
-            # if environment returns scalar reward, add to all agents (fallback)
-            for ts in ts_ids:
-                try:
-                    rewards_sum[ts] += float(rewards_dict)
-                except Exception:
-                    pass
-
-        steps += 1
-        time.sleep(0.05)
-
-        # Log system-level metrics occasionally to monitor backlog/teleports
-        if steps % 100 == 0:
-            backlogged = info.get("system_total_backlogged", None)
-            teleported = info.get("system_total_teleported", None)
-            running = info.get("system_total_running", None)
-            mean_wait = info.get("system_mean_waiting_time", None)
-            print(
-                f"[eval] step={steps} running={running} backlogged={backlogged} teleported={teleported} mean_wait={mean_wait}"
-            )
-
-        # Robust done handling: prefer '__all__', otherwise check if all agents finished
-        if isinstance(dones_dict, dict):
-            if "__all__" in dones_dict:
-                done = bool(dones_dict["__all__"])
+            res = env.step(actions_dict)
+            if len(res) == 5:
+                obs_dict, rewards_dict, terminated, truncated, info = res
+                dones_dict = {"__all__": bool(terminated or truncated)}
             else:
-                done = all(bool(v) for v in dones_dict.values())
-        else:
-            done = bool(dones_dict)
+                obs_dict, rewards_dict, dones_dict, info = res
 
-    print("Ocenianie Agenta zakończone. Trasy całkowicie obsłużone.")
-    print(f"Kroków wykonano: {steps}")
-    for ts in ts_ids:
-        print(f"Agent {ts} — suma reward: {rewards_sum[ts]:.3f}")
+            if isinstance(rewards_dict, dict):
+                for ts in ts_ids:
+                    reward_sum[ts] += float(rewards_dict.get(ts, 0.0))
 
-    env.close()
+            steps += 1
+            time.sleep(sleep_seconds)
+
+            if steps % 100 == 0:
+                log(
+                    f"[eval] step={steps} running={info.get('system_total_running')} "
+                    f"backlogged={info.get('system_total_backlogged')} "
+                    f"teleported={info.get('system_total_teleported')} "
+                    f"mean_wait={info.get('system_mean_waiting_time')}"
+                )
+
+            if isinstance(dones_dict, dict):
+                done = bool(dones_dict.get("__all__", False))
+            else:
+                done = bool(dones_dict)
+
+        log("Ocenianie zakończone.")
+        log(f"Kroków wykonano: {steps}")
+        for ts in ts_ids:
+            log(f"Agent {ts} - suma reward: {reward_sum[ts]:.3f}")
+
+        env.close()
+    finally:
+        log_file.close()
 
 
 if __name__ == "__main__":
-    play()
+    play(use_gui=bool(ENV_CONFIG.get("use_gui", False)))
