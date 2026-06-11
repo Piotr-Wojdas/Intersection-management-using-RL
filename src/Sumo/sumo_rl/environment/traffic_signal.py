@@ -125,6 +125,23 @@ class TrafficSignal:
             lane: self.sumo.lane.getLength(lane) for lane in self.lanes + self.out_lanes
         }
 
+        # Identify upstream traffic-signal-controlled junctions.
+        # Done here (before observation_space() is called) so the observation
+        # size is fixed at initialisation time.
+        upstream = set()
+        tl_ids = set(self.sumo.trafficlight.getIDList())
+        for lane in self.lanes:
+            edge_id = lane.rsplit("_", 1)[0]
+            if edge_id.startswith(":"):
+                continue
+            try:
+                from_j = self.sumo.edge.getFromJunction(edge_id)
+                if from_j in tl_ids and from_j != self.id:
+                    upstream.add(from_j)
+            except Exception:
+                pass
+        self.upstream_ts_ids = sorted(upstream)
+
         self.observation_space = self.observation_fn.observation_space()
         self.action_space = spaces.Discrete(self.num_green_phases)
 
@@ -140,13 +157,14 @@ class TrafficSignal:
                 EXPONENTIAL_WAIT_PENALTY,
                 EXP_WAIT_PENALTY_SCALE,
             )
-        except Exception:
+        except ImportError:
+            # Only triggered when sumo_rl is used outside the main project.
             STANDING_WAIT_THRESHOLD = 20
-            STANDING_PENALTY_WEIGHT = 0.5
+            STANDING_PENALTY_WEIGHT = 0.3
             PENDING_VEHICLE_PENALTY_WEIGHT = 0.1
             QUEUE_PENALTY_WEIGHT = 0.05
             EXPONENTIAL_WAIT_PENALTY = False
-            EXP_WAIT_PENALTY_SCALE = 0.2
+            EXP_WAIT_PENALTY_SCALE = 0.05
 
         self._standing_wait_threshold = STANDING_WAIT_THRESHOLD
         self._standing_penalty_weight = STANDING_PENALTY_WEIGHT
@@ -198,7 +216,10 @@ class TrafficSignal:
         Applies the pending green phase once the yellow window has elapsed.
         """
         self.time_since_last_phase_change += 1
-        if self._pending_phase is not None and self.env.sim_step >= self._yellow_phase_end:
+        if (
+            self._pending_phase is not None
+            and self.env.sim_step >= self._yellow_phase_end
+        ):
             self.green_phase = self._pending_phase
             self.sumo.trafficlight.setRedYellowGreenState(
                 self.id, self.all_phases[self._pending_phase].state
@@ -321,9 +342,7 @@ class TrafficSignal:
                     over = max(0.0, wt - self._standing_wait_threshold)
                     if over > 0:
                         exp_arg = min(self._exp_wait_penalty_scale * over, max_exp_arg)
-                        penalty += (
-                            math.exp(exp_arg) - 1.0
-                        ) / 100.0
+                        penalty += (math.exp(exp_arg) - 1.0) / 100.0
             penalty = min(penalty, max_total_penalty)
             return -self._standing_penalty_weight * penalty
 
@@ -355,7 +374,11 @@ class TrafficSignal:
         delta = current_imbalance - self._last_lane_imbalance
         self._last_lane_imbalance = current_imbalance
 
-        if delta < self._standing_wait_threshold:
+        # Only penalise when imbalance is actively growing (delta > 0).
+        # The old check `delta < _standing_wait_threshold` used a per-vehicle
+        # seconds threshold (20) against a lane-sum delta — wrong scale, which
+        # silenced this penalty almost always.
+        if delta <= 0.0:
             return 0.0
 
         return -self._standing_penalty_weight * delta / 100.0
@@ -372,7 +395,11 @@ class TrafficSignal:
         for phase in self.green_phases:
             served = set()
             for link_idx, char in enumerate(phase.state):
-                if char in "Gg" and link_idx < len(controlled_links) and controlled_links[link_idx]:
+                if (
+                    char in "Gg"
+                    and link_idx < len(controlled_links)
+                    and controlled_links[link_idx]
+                ):
                     in_lane = controlled_links[link_idx][0][0]
                     if in_lane in lane_set:
                         served.add(in_lane)
@@ -426,41 +453,22 @@ class TrafficSignal:
             self.sumo.lane.getLastStepVehicleNumber(lane) for lane in self.out_lanes
         ) - sum(self.sumo.lane.getLastStepVehicleNumber(lane) for lane in self.lanes)
 
+    def _lane_metric(self, lanes: list, getter) -> List[float]:
+        """Normalise a per-lane TraCI count to [0, 1] by lane capacity."""
+        cap = self.MIN_GAP + self.VEHICLE_LENGTH
+        return [min(1.0, getter(lane) / (self.lanes_length[lane] / cap)) for lane in lanes]
+
     def get_out_lanes_density(self) -> List[float]:
         """Returns the density of the vehicles in the outgoing lanes of the intersection."""
-        cap = self.MIN_GAP + self.VEHICLE_LENGTH
-        lanes_density = [
-            self.sumo.lane.getLastStepVehicleNumber(lane)
-            / (self.lanes_length[lane] / cap)
-            for lane in self.out_lanes
-        ]
-        return [min(1, density) for density in lanes_density]
+        return self._lane_metric(self.out_lanes, self.sumo.lane.getLastStepVehicleNumber)
 
     def get_lanes_density(self) -> List[float]:
-        """Returns the density [0,1] of the vehicles in the incoming lanes of the intersection.
-
-        Obs: The density is computed as the number of vehicles divided by the number of vehicles that could fit in the lane.
-        """
-        cap = self.MIN_GAP + self.VEHICLE_LENGTH
-        lanes_density = [
-            self.sumo.lane.getLastStepVehicleNumber(lane)
-            / (self.lanes_length[lane] / cap)
-            for lane in self.lanes
-        ]
-        return [min(1, density) for density in lanes_density]
+        """Returns the density [0,1] of the vehicles in the incoming lanes."""
+        return self._lane_metric(self.lanes, self.sumo.lane.getLastStepVehicleNumber)
 
     def get_lanes_queue(self) -> List[float]:
-        """Returns the queue [0,1] of the vehicles in the incoming lanes of the intersection.
-
-        Obs: The queue is computed as the number of vehicles halting divided by the number of vehicles that could fit in the lane.
-        """
-        cap = self.MIN_GAP + self.VEHICLE_LENGTH
-        lanes_queue = [
-            self.sumo.lane.getLastStepHaltingNumber(lane)
-            / (self.lanes_length[lane] / cap)
-            for lane in self.lanes
-        ]
-        return [min(1, queue) for queue in lanes_queue]
+        """Returns the queue [0,1] of halted vehicles in the incoming lanes."""
+        return self._lane_metric(self.lanes, self.sumo.lane.getLastStepHaltingNumber)
 
     def get_normalized_waiting_time_per_lane(self) -> List[float]:
         """Returns accumulated waiting time per lane, normalised to [0, 1].

@@ -11,7 +11,7 @@ from src.params import (
     build_eval_log_file,
     resolve_eval_weights_file,
 )
-from src.utils import pad_observation, resolve_device
+from src.utils import env_reset, env_step, make_log_fn, pad_observation, resolve_device
 from src.Sumo.sumo_rl import SumoEnvironment
 
 
@@ -29,10 +29,7 @@ def play(use_gui: bool | None = None, sleep_seconds: float = 0.15):
     weights_file_path = resolve_eval_weights_file()
     os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
     log_file = open(log_file_path, "w", encoding="utf-8")
-
-    def log(message=""):
-        print(message)
-        print(message, file=log_file, flush=True)
+    log = make_log_fn(log_file)
 
     try:
         ts_ids = env.ts_ids
@@ -43,11 +40,15 @@ def play(use_gui: bool | None = None, sleep_seconds: float = 0.15):
         for ts in ts_ids:
             agents[ts] = SharedPPOAgent(obs_dims[ts], act_dims[ts]).to(device)
 
-        log(f"Plik wag: {weights_file_path}")
-        log(f"Plik logu: {log_file_path}")
+        log(f"Weights file: {weights_file_path}")
+        log(f"Log file: {log_file_path}")
 
         if os.path.exists(weights_file_path):
-            checkpoint = torch.load(weights_file_path, map_location=device, weights_only=False)
+            checkpoint = torch.load(
+                weights_file_path,
+                map_location=device,
+                weights_only=True,
+            )
             state_dict = (
                 checkpoint.get("model_state_dict", checkpoint)
                 if isinstance(checkpoint, dict)
@@ -56,55 +57,38 @@ def play(use_gui: bool | None = None, sleep_seconds: float = 0.15):
             if isinstance(state_dict, dict) and all(ts in state_dict for ts in ts_ids):
                 for ts in ts_ids:
                     agents[ts].load_state_dict(state_dict[ts])
-                log(f"Wczytano niezależne modele z {weights_file_path}")
+                log(f"Loaded per-agent models from {weights_file_path}")
             else:
                 for ts in ts_ids:
                     try:
                         agents[ts].load_state_dict(state_dict)
                     except Exception:
                         pass
-                log(f"Wczytano model (broadcast) z {weights_file_path}")
+                log(f"Loaded broadcast model from {weights_file_path}")
         else:
-            log(
-                f"UWAGA: nie znaleziono wag w {weights_file_path}. Agent startuje losowo."
-            )
+            log(f"WARNING: no weights at {weights_file_path}. Running with random policy.")
 
-        obs_dict = env.reset()
-        if isinstance(obs_dict, tuple):
-            obs_dict = obs_dict[0]
-
+        obs_dict = env_reset(env)
         reward_sum = {ts: 0.0 for ts in ts_ids}
         steps = 0
 
-        log("Start oceny na mapie city_map_2...")
+        log("Starting evaluation on city_map_2...")
 
         done = False
         while not done:
-            actions_dict = {}
+            actions_dict = {
+                ts: agents[ts].get_greedy_action(
+                    pad_observation(
+                        torch.tensor(obs_dict[ts], dtype=torch.float32, device=device),
+                        obs_dims[ts],
+                    ),
+                    valid_action_dim=act_dims[ts],
+                )
+                for ts in ts_ids
+                if ts in obs_dict
+            }
 
-            for ts in ts_ids:
-                if ts not in obs_dict:
-                    continue
-
-                obs_ts = torch.tensor(obs_dict[ts], dtype=torch.float32, device=device)
-                obs_ts = pad_observation(obs_ts, obs_dims[ts])
-                valid_action_dim = act_dims[ts]
-
-                with torch.no_grad():
-                    logits, _ = agents[ts]._forward(obs_ts)
-                    logits = agents[ts]._sanitize_logits(logits)
-                    logits = agents[ts]._mask_logits(logits, valid_action_dim)
-                    if logits.dim() > 1:
-                        logits = logits.squeeze(0)
-                    action = int(torch.argmax(logits).item())
-                actions_dict[ts] = action
-
-            res = env.step(actions_dict)
-            if len(res) == 5:
-                obs_dict, rewards_dict, terminated, truncated, info = res
-                dones_dict = {"__all__": bool(terminated or truncated)}
-            else:
-                obs_dict, rewards_dict, dones_dict, info = res
+            obs_dict, rewards_dict, dones_dict, info = env_step(env, actions_dict)
 
             if isinstance(rewards_dict, dict):
                 for ts in ts_ids:
@@ -121,15 +105,12 @@ def play(use_gui: bool | None = None, sleep_seconds: float = 0.15):
                     f"mean_wait={info.get('system_mean_waiting_time')}"
                 )
 
-            if isinstance(dones_dict, dict):
-                done = bool(dones_dict.get("__all__", False))
-            else:
-                done = bool(dones_dict)
+            done = bool(dones_dict.get("__all__", False)) if isinstance(dones_dict, dict) else bool(dones_dict)
 
-        log("Ocenianie zakończone.")
-        log(f"Kroków wykonano: {steps}")
+        log("Evaluation complete.")
+        log(f"Steps taken: {steps}")
         for ts in ts_ids:
-            log(f"Agent {ts} - suma reward: {reward_sum[ts]:.3f}")
+            log(f"Agent {ts} - total reward: {reward_sum[ts]:.3f}")
 
         env.close()
     finally:

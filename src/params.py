@@ -70,11 +70,11 @@ def build_eval_log_file(run_id: int | None = None) -> str:
     return os.path.join(LOGS_DIR, f"ewaluacja_{run_id}.txt")
 
 
-def get_latest_best_weights_file() -> str | None:
+def _get_latest_weights_file(filename_pattern: str) -> str | None:
     if not os.path.isdir(OUTPUTS_DIR):
         return None
 
-    pattern = re.compile(r"^ppo_models_weights_(\d+)_best\.pth$")
+    pattern = re.compile(filename_pattern)
     latest_run_id = -1
     latest_path = None
 
@@ -88,29 +88,22 @@ def get_latest_best_weights_file() -> str | None:
             latest_path = os.path.join(OUTPUTS_DIR, entry)
 
     return latest_path
+
+
+def get_latest_best_weights_file() -> str | None:
+    return _get_latest_weights_file(r"^ppo_models_weights_(\d+)_best\.pth$")
 
 
 def get_latest_training_weights_file() -> str | None:
-    if not os.path.isdir(OUTPUTS_DIR):
-        return None
-
-    pattern = re.compile(r"^ppo_models_weights_(\d+)\.pth$")
-    latest_run_id = -1
-    latest_path = None
-
-    for entry in os.listdir(OUTPUTS_DIR):
-        match = pattern.match(entry)
-        if not match:
-            continue
-        run_id = int(match.group(1))
-        if run_id > latest_run_id:
-            latest_run_id = run_id
-            latest_path = os.path.join(OUTPUTS_DIR, entry)
-
-    return latest_path
+    return _get_latest_weights_file(r"^ppo_models_weights_(\d+)\.pth$")
 
 
 def resolve_eval_weights_file() -> str:
+    """Return the best available checkpoint path.
+
+    Search order: latest _best.pth → latest .pth → raise so the caller
+    fails loudly instead of loading a non-existent hardcoded path.
+    """
     latest_best = get_latest_best_weights_file()
     if latest_best is not None:
         return latest_best
@@ -119,14 +112,9 @@ def resolve_eval_weights_file() -> str:
     if latest_training is not None:
         return latest_training
 
-    return os.path.join(OUTPUTS_DIR, "ppo_models_weights_3_best.pth")
-
-
-# Separate evaluation model path; training uses numbered files created per run.
-EVAL_MODEL_WEIGHTS_FILE = resolve_eval_weights_file()
-
-# Backward-compatible alias used by older code paths.
-MODEL_WEIGHTS_FILE = EVAL_MODEL_WEIGHTS_FILE
+    raise FileNotFoundError(
+        f"No trained weights found in {OUTPUTS_DIR}. Run training first."
+    )
 
 # Shared PPO network architecture.
 PPO_HIDDEN_DIMS = [256, 128]
@@ -142,18 +130,25 @@ ROLLOUT_STEPS = 800
 EPOCHS = 4
 
 # Discount factor applied to future rewards.
-GAMMA = 0.97
+# 0.99 gives an effective horizon of ~100 steps = 500 s, which is appropriate
+# for a 4000 s episode where queue effects propagate over several hundred seconds.
+GAMMA = 0.99
 
 # GAE lambda controlling the bias/variance tradeoff in advantage estimation.
 GAE_LAMBDA = 0.95
 
 # PPO clipping range for the policy ratio.
-CLIP_FRAC = 0.15
+# Reduced to 0.15 in run 4 to fix collapse; run 7 is stable for 37+ epochs,
+# so restoring the standard value allows faster policy updates.
+CLIP_FRAC = 0.2
 
 # PPO batch and loss controls.
 PPO_MINIBATCH_SIZE = 256
 PPO_ENTROPY_COEF = 0.01
-PPO_ENTROPY_FINAL_FRAC = 0.1
+# Final entropy = PPO_ENTROPY_COEF * PPO_ENTROPY_FINAL_FRAC.
+# 0.1 gives 0.001 at end of training (too deterministic); 0.3 gives 0.003,
+# maintaining enough exploration for J7/J1 to keep improving late in training.
+PPO_ENTROPY_FINAL_FRAC = 0.3
 PPO_VALUE_COEF = 0.5
 PPO_MAX_GRAD_NORM = 0.5
 
@@ -213,7 +208,7 @@ ENV_CONFIG = {
 }
 
 # Number of outer PPO update loops.
-NUM_UPDATES = 200
+NUM_UPDATES = 300
 
 # --- Traffic generation defaults (used by src/City_map/generate_traffic.py) ---
 # Number of vehicles to generate when creating trips/routes.
@@ -232,11 +227,10 @@ TRAFFIC_HOTSPOT_RATIO = 0.6
 # --- Standing-vehicle penalty ---
 # If a vehicle's waiting time (seconds) exceeds this threshold, it counts as "long-standing".
 # How much to penalize each long-standing vehicle (scalar multiplier).
-STANDING_WAIT_THRESHOLD = 20
+# With min_green=10, delta_time=5, yellow_time=3, a vehicle in a normal red cycle can wait
+# up to ~30 s before its phase returns — threshold below 30 penalises unavoidable waiting.
+STANDING_WAIT_THRESHOLD = 30
 STANDING_PENALTY_WEIGHT = 0.3
-
-# Penalize the global number of vehicles waiting to be inserted into the network.
-PENDING_VEHICLE_PENALTY_WEIGHT = 0.1
 
 # Penalize the total queue inside the controlled network.
 QUEUE_PENALTY_WEIGHT = 0.05

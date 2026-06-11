@@ -54,8 +54,27 @@ class DefaultObservationFunction(ObservationFunction):
         # The reward is diff-waiting-time, so exposing the waiting time directly
         # lets the agent observe what it is rewarded for.
         wait_norm = self.ts.get_normalized_waiting_time_per_lane()
+        # Phase progress of each upstream (feeding) traffic signal [0, 1].
+        # Lets the agent anticipate when a neighbour will send a vehicle wave
+        # instead of only reacting once vehicles have already arrived.
+        upstream_progress = [
+            min(
+                1.0,
+                self.ts.env.traffic_signals[ts_id].time_since_last_phase_change
+                / max(1, self.ts.env.traffic_signals[ts_id].max_green),
+            )
+            if ts_id in self.ts.env.traffic_signals
+            else 0.0
+            for ts_id in self.ts.upstream_ts_ids
+        ]
+        # Normalised episode progress [0, 1]: helps the agent distinguish
+        # early-episode build-up from late-episode dissipation.
+        episode_progress = [
+            min(1.0, self.ts.env.sim_step / max(1, self.ts.env.sim_max_time))
+        ]
         observation = np.array(
-            phase_id + phase_progress + density + queue + out_density + wait_norm,
+            phase_id + phase_progress + density + queue + out_density
+            + wait_norm + upstream_progress + episode_progress,
             dtype=np.float32,
         )
         return observation
@@ -68,6 +87,8 @@ class DefaultObservationFunction(ObservationFunction):
             + 2 * len(self.ts.lanes)  # density + queue
             + len(self.ts.out_lanes)  # out_density
             + len(self.ts.lanes)  # wait_norm
+            + len(self.ts.upstream_ts_ids)  # upstream phase progress
+            + 1  # episode_progress
         )
         return spaces.Box(
             low=np.zeros(n, dtype=np.float32),

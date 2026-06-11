@@ -28,10 +28,12 @@ from src.params import (
     TRAIN_EVAL_SEED,
     build_training_artifacts,
 )
-from src.utils import pad_observation, resolve_device
+from src.utils import env_reset, env_step, make_log_fn, pad_observation, resolve_device
 
 
-def _layer_init(layer: nn.Linear, std: float = np.sqrt(2), bias_const: float = 0.0) -> nn.Linear:
+def _layer_init(
+    layer: nn.Linear, std: float = np.sqrt(2), bias_const: float = 0.0
+) -> nn.Linear:
     """Orthogonal weight init — standard for PPO stability."""
     nn.init.orthogonal_(layer.weight, std)
     nn.init.constant_(layer.bias, bias_const)
@@ -46,7 +48,9 @@ class SharedPPOAgent(nn.Module):
     Architecture uses ELU + orthogonal init instead of Tanh + default init.
     """
 
-    def __init__(self, obs_dim: int, act_dim: int, hidden_dims: list[int] | None = None):
+    def __init__(
+        self, obs_dim: int, act_dim: int, hidden_dims: list[int] | None = None
+    ):
         super().__init__()
         self.obs_dim = obs_dim
         self.act_dim = act_dim
@@ -118,6 +122,16 @@ class SharedPPOAgent(nn.Module):
         _, value = self._forward(obs)
         return value
 
+    @torch.no_grad()
+    def get_greedy_action(self, obs: torch.Tensor, valid_action_dim=None) -> int:
+        """Return the argmax action without gradient tracking."""
+        logits, _ = self._forward(obs)
+        logits = self._sanitize_logits(logits)
+        logits = self._mask_logits(logits, valid_action_dim)
+        if logits.dim() > 1:
+            logits = logits.squeeze(0)
+        return int(torch.argmax(logits).item())
+
 
 def build_env(use_gui: bool = False, sumo_seed=None):
     env_args = dict(ENV_CONFIG)
@@ -149,6 +163,28 @@ def _scheduled_entropy_coef(progress: float) -> float:
     return PPO_ENTROPY_COEF * (final_frac + (1.0 - final_frac) * (1.0 - progress))
 
 
+def _build_checkpoint(
+    agents: dict,
+    ts_ids: list[str],
+    obs_dims: dict,
+    act_dims: dict,
+    best_eval_score: float,
+    update: int | None = None,
+) -> dict:
+    ckpt = {
+        "model_state_dict": {ts: agents[ts].state_dict() for ts in ts_ids},
+        "obs_dims": obs_dims,
+        "act_dims": act_dims,
+        "ts_ids": ts_ids,
+        "map_net_file": NET_FILE,
+        "map_route_file": ROUTE_FILE,
+        "best_eval_score": best_eval_score,
+    }
+    if update is not None:
+        ckpt["update"] = update
+    return ckpt
+
+
 def _aggregate_policy_reward(reward_sum: dict[str, float]) -> float:
     values = list(reward_sum.values())
     if not values:
@@ -167,47 +203,30 @@ def _run_single_eval(
     """Run one greedy episode and return the mean per-agent reward sum."""
     eval_env = build_env(use_gui=False, sumo_seed=seed)
     try:
-        obs_dict = eval_env.reset(seed=seed)
-        if isinstance(obs_dict, tuple):
-            obs_dict = obs_dict[0]
-
+        obs_dict = env_reset(eval_env)
         reward_sum = {ts: 0.0 for ts in ts_ids}
         done = False
 
         while not done:
-            actions_dict = {}
-            for ts in ts_ids:
-                if ts not in obs_dict:
-                    continue
+            actions_dict = {
+                ts: agents[ts].get_greedy_action(
+                    pad_observation(
+                        torch.tensor(obs_dict[ts], dtype=torch.float32, device=device),
+                        obs_dims[ts],
+                    ),
+                    valid_action_dim=act_dims[ts],
+                )
+                for ts in ts_ids
+                if ts in obs_dict
+            }
 
-                obs_ts = torch.tensor(obs_dict[ts], dtype=torch.float32, device=device)
-                obs_ts = pad_observation(obs_ts, obs_dims[ts])
-                valid_action_dim = act_dims[ts]
-
-                with torch.no_grad():
-                    logits, _ = agents[ts]._forward(obs_ts)
-                    logits = agents[ts]._sanitize_logits(logits)
-                    logits = agents[ts]._mask_logits(logits, valid_action_dim)
-                    if logits.dim() > 1:
-                        logits = logits.squeeze(0)
-                    action = int(torch.argmax(logits).item())
-                actions_dict[ts] = action
-
-            res = eval_env.step(actions_dict)
-            if len(res) == 5:
-                obs_dict, rewards_dict, terminated, truncated, _info = res
-                dones_dict = {"__all__": bool(terminated or truncated)}
-            else:
-                obs_dict, rewards_dict, dones_dict, _info = res
+            obs_dict, rewards_dict, dones_dict, _ = env_step(eval_env, actions_dict)
 
             if isinstance(rewards_dict, dict):
                 for ts in ts_ids:
                     reward_sum[ts] += float(rewards_dict.get(ts, 0.0))
 
-            if isinstance(dones_dict, dict):
-                done = bool(dones_dict.get("__all__", False))
-            else:
-                done = bool(dones_dict)
+            done = bool(dones_dict.get("__all__", False)) if isinstance(dones_dict, dict) else bool(dones_dict)
 
         return _aggregate_policy_reward(reward_sum)
     finally:
@@ -246,10 +265,7 @@ def train():
     os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
 
     log_file = open(log_file_path, "w", encoding="utf-8")
-
-    def log(message=""):
-        print(message)
-        print(message, file=log_file, flush=True)
+    log = make_log_fn(log_file)
 
     env = None
     try:
@@ -270,13 +286,12 @@ def train():
             agents[ts] = SharedPPOAgent(obs_dims[ts], act_dims[ts]).to(device)
             optimizers[ts] = optim.Adam(agents[ts].parameters(), lr=LEARNING_RATE)
 
-        log(f"Stworzono niezależne modele PPO dla {len(ts_ids)} skrzyżowań (obs_dims={obs_dims}).")
+        log(
+            f"Stworzono niezależne modele PPO dla {len(ts_ids)} skrzyżowań (obs_dims={obs_dims})."
+        )
 
         best_eval_score = -float("inf")
-
-        obs_dict = env.reset()
-        if isinstance(obs_dict, tuple):
-            obs_dict = obs_dict[0]
+        obs_dict = env_reset(env)
 
         for update in range(1, NUM_UPDATES + 1):
             progress = _schedule_progress(update, NUM_UPDATES)
@@ -292,9 +307,7 @@ def train():
             # Reset at the start of every rollout so each update sees exactly
             # one full episode from t=0. This eliminates the episode-position
             # variance that made training rewards jump wildly between updates.
-            obs_dict = env.reset()
-            if isinstance(obs_dict, tuple):
-                obs_dict = obs_dict[0]
+            obs_dict = env_reset(env)
 
             memories = {
                 ts: {
@@ -341,18 +354,13 @@ def train():
                     memories[ts]["logprobs"].append(logprob.detach())
                     memories[ts]["values"].append(value.detach().squeeze(-1))
 
-                res = env.step(actions_dict)
-                if len(res) == 5:
-                    next_obs_dict, rewards_dict, terminated, truncated, _info = res
-                    dones_dict = {"__all__": bool(terminated or truncated)}
-                else:
-                    next_obs_dict, rewards_dict, dones_dict, _info = res
+                next_obs_dict, rewards_dict, dones_dict, _info = env_step(env, actions_dict)
 
                 # SUMO only sets __all__=True; individual agent dones are always
                 # False. We must propagate the episode boundary to all active
                 # agents so GAE does not bootstrap across episode boundaries.
-                episode_ended = (
-                    isinstance(dones_dict, dict) and dones_dict.get("__all__", False)
+                episode_ended = isinstance(dones_dict, dict) and dones_dict.get(
+                    "__all__", False
                 )
 
                 for ts in active_ts:
@@ -369,9 +377,7 @@ def train():
 
                 obs_dict = next_obs_dict
                 if episode_ended:
-                    obs_dict = env.reset()
-                    if isinstance(obs_dict, tuple):
-                        obs_dict = obs_dict[0]
+                    obs_dict = env_reset(env)
 
             any_updates = False
             for ts in ts_ids:
@@ -415,7 +421,9 @@ def train():
                         nextvalue = val_t[t + 1]
 
                     delta = rew_t[t] + GAMMA * nextvalue * nextnonterminal - val_t[t]
-                    lastgaelam = delta + GAMMA * GAE_LAMBDA * nextnonterminal * lastgaelam
+                    lastgaelam = (
+                        delta + GAMMA * GAE_LAMBDA * nextnonterminal * lastgaelam
+                    )
                     advantages[t] = lastgaelam
 
                 returns = advantages + val_t
@@ -444,7 +452,9 @@ def train():
                         mb_ret = returns[idx]
                         mb_old_val = val_t[idx]
 
-                        _, newlogprob, entropy, newvalue = agents[ts].get_action_and_value(
+                        _, newlogprob, entropy, newvalue = agents[
+                            ts
+                        ].get_action_and_value(
                             mb_obs,
                             action=mb_act,
                             valid_action_dim=mb_act_dim,
@@ -460,10 +470,13 @@ def train():
                         v_clipped = mb_old_val + torch.clamp(
                             newvalue - mb_old_val, -CLIP_FRAC, CLIP_FRAC
                         )
-                        critic_loss = 0.5 * torch.max(
-                            (newvalue - mb_ret.detach()) ** 2,
-                            (v_clipped - mb_ret.detach()) ** 2,
-                        ).mean()
+                        critic_loss = (
+                            0.5
+                            * torch.max(
+                                (newvalue - mb_ret.detach()) ** 2,
+                                (v_clipped - mb_ret.detach()) ** 2,
+                            ).mean()
+                        )
                         entropy_loss = entropy.mean()
 
                         loss = (
@@ -474,7 +487,9 @@ def train():
 
                         optimizers[ts].zero_grad()
                         loss.backward()
-                        nn.utils.clip_grad_norm_(agents[ts].parameters(), PPO_MAX_GRAD_NORM)
+                        nn.utils.clip_grad_norm_(
+                            agents[ts].parameters(), PPO_MAX_GRAD_NORM
+                        )
                         optimizers[ts].step()
 
             if not any_updates:
@@ -501,31 +516,18 @@ def train():
                 log(f"Ocena greedy: {eval_score:.3f}")
                 if eval_score > best_eval_score:
                     best_eval_score = eval_score
-                    best_checkpoint = {
-                        "model_state_dict": {ts: agents[ts].state_dict() for ts in ts_ids},
-                        "obs_dims": obs_dims,
-                        "act_dims": act_dims,
-                        "ts_ids": ts_ids,
-                        "map_net_file": NET_FILE,
-                        "map_route_file": ROUTE_FILE,
-                        "best_eval_score": best_eval_score,
-                        "update": update,
-                    }
-                    torch.save(best_checkpoint, best_weights_file_path)
+                    torch.save(
+                        _build_checkpoint(agents, ts_ids, obs_dims, act_dims, best_eval_score, update),
+                        best_weights_file_path,
+                    )
                     log(
                         f"Nowy najlepszy model: {best_weights_file_path} (score={best_eval_score:.3f})"
                     )
 
-        checkpoint = {
-            "model_state_dict": {ts: agents[ts].state_dict() for ts in ts_ids},
-            "obs_dims": obs_dims,
-            "act_dims": act_dims,
-            "ts_ids": ts_ids,
-            "map_net_file": NET_FILE,
-            "map_route_file": ROUTE_FILE,
-            "best_eval_score": best_eval_score,
-        }
-        torch.save(checkpoint, weights_file_path)
+        torch.save(
+            _build_checkpoint(agents, ts_ids, obs_dims, act_dims, best_eval_score),
+            weights_file_path,
+        )
         log(f"\nTrening zakończony pomyślnie. Wagi zapisano w {weights_file_path}.")
         if os.path.exists(best_weights_file_path):
             log(f"Najlepszy checkpoint zapisano w {best_weights_file_path}")
