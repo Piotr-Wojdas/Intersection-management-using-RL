@@ -6,6 +6,19 @@ from typing import Callable, List, Union
 import numpy as np
 from gymnasium import spaces
 
+# Reward/observation tuning lives in src.params. Imported without a fallback:
+# a missing constant must fail loudly instead of silently reverting to stale
+# defaults (this vendored copy is only used inside this project).
+from src.params import (
+    EXP_WAIT_PENALTY_SCALE,
+    EXPONENTIAL_WAIT_PENALTY,
+    OBS_WAIT_NORM_SECONDS,
+    PENDING_VEHICLE_PENALTY_WEIGHT,
+    QUEUE_PENALTY_WEIGHT,
+    STANDING_PENALTY_WEIGHT,
+    STANDING_WAIT_THRESHOLD,
+)
+
 
 class TrafficSignal:
     """This class represents a Traffic Signal controlling an intersection.
@@ -147,24 +160,11 @@ class TrafficSignal:
 
         self._build_phase_lane_mappings()
 
-        # Read standing-vehicle penalty params (fallback to defaults if params missing)
-        try:
-            from src.params import (
-                PENDING_VEHICLE_PENALTY_WEIGHT,
-                QUEUE_PENALTY_WEIGHT,
-                STANDING_PENALTY_WEIGHT,
-                STANDING_WAIT_THRESHOLD,
-                EXPONENTIAL_WAIT_PENALTY,
-                EXP_WAIT_PENALTY_SCALE,
-            )
-        except ImportError:
-            # Only triggered when sumo_rl is used outside the main project.
-            STANDING_WAIT_THRESHOLD = 20
-            STANDING_PENALTY_WEIGHT = 0.3
-            PENDING_VEHICLE_PENALTY_WEIGHT = 0.1
-            QUEUE_PENALTY_WEIGHT = 0.05
-            EXPONENTIAL_WAIT_PENALTY = False
-            EXP_WAIT_PENALTY_SCALE = 0.05
+        # Per-sim-step TraCI cache: reward terms and the observation scan the
+        # same lanes several times within one decision step.
+        self._cache_time = -1.0
+        self._lane_veh_ids_cache = None
+        self._lane_waits_cache = None
 
         self._standing_wait_threshold = STANDING_WAIT_THRESHOLD
         self._standing_penalty_weight = STANDING_PENALTY_WEIGHT
@@ -226,17 +226,41 @@ class TrafficSignal:
             )
             self._pending_phase = None
 
+    def get_action_mask(self) -> np.ndarray:
+        """Boolean validity mask over green phases at the current decision point.
+
+        During min_green only holding is allowed (set_next_phase ignores switch
+        requests then anyway). With enforce_max_green, holding past max_green is
+        masked out, so the agent itself picks the next phase and buffered
+        actions always match what the environment executes.
+        """
+        mask = np.ones(self.num_green_phases, dtype=bool)
+        if self.num_green_phases <= 1:
+            return mask
+        if self.time_since_last_phase_change < self.min_green:
+            mask[:] = False
+            mask[self.green_phase] = True
+        elif (
+            self.enforce_max_green
+            and self.time_since_last_phase_change >= self.max_green
+        ):
+            mask[self.green_phase] = False
+        return mask
+
     def set_next_phase(self, new_phase: int):
         """Sets what will be the next green phase.
+
+        Note: `time_since_last_phase_change` is reset when the yellow transition
+        starts, so min_green effectively includes yellow_time.
 
         Args:
             new_phase (int): Number between [0 ... num_green_phases]
         """
         new_phase = int(new_phase)
 
-        # Enforce max-green: when the agent wants to hold but time is up, force a
-        # switch to the non-current phase with the highest incoming queue so that
-        # the most congested approach is served first.
+        # Safety net for callers that ignore get_action_mask(): when the agent
+        # holds past max_green, force a switch to the waiting phase with the
+        # highest incoming queue. Masked policies never reach this branch.
         if (
             self.enforce_max_green
             and new_phase == self.green_phase
@@ -328,13 +352,14 @@ class TrafficSignal:
 
     def _standing_penalty(self):
         """Penalty proportional to the number of vehicles whose waiting time exceeds threshold."""
+        veh_ids_per_lane = self._lane_vehicle_ids()
         if self._exp_wait_penalty_enabled:
             penalty = 0.0
             # Cap exponential growth to prevent reward explosion under heavy congestion.
             max_exp_arg = 8.0
             max_total_penalty = 1e4
             for lane in self.lanes:
-                for veh in self.sumo.lane.getLastStepVehicleIDs(lane):
+                for veh in veh_ids_per_lane[lane]:
                     try:
                         wt = float(self.sumo.vehicle.getWaitingTime(veh))
                     except Exception:
@@ -349,7 +374,7 @@ class TrafficSignal:
         # Original count-based penalty
         count = 0
         for lane in self.lanes:
-            for veh in self.sumo.lane.getLastStepVehicleIDs(lane):
+            for veh in veh_ids_per_lane[lane]:
                 try:
                     wt = float(self.sumo.vehicle.getWaitingTime(veh))
                 except Exception:
@@ -384,16 +409,18 @@ class TrafficSignal:
         return -self._standing_penalty_weight * delta / 100.0
 
     def _build_phase_lane_mappings(self):
-        """Pre-compute which incoming lanes each green phase serves.
+        """Pre-compute incoming/outgoing lanes served by each green phase.
 
-        Used by enforce_max_green to pick the most congested waiting phase when a
-        forced switch is required instead of cycling blindly.
+        Used by enforce_max_green to pick the most congested waiting phase when
+        a forced switch is required, and by the max-pressure baseline.
         """
         controlled_links = self.sumo.trafficlight.getControlledLinks(self.id)
         lane_set = set(self.lanes)
         self.phase_served_lanes = []
+        self.phase_out_lanes = []
         for phase in self.green_phases:
             served = set()
+            served_out = set()
             for link_idx, char in enumerate(phase.state):
                 if (
                     char in "Gg"
@@ -401,19 +428,37 @@ class TrafficSignal:
                     and controlled_links[link_idx]
                 ):
                     in_lane = controlled_links[link_idx][0][0]
+                    out_lane = controlled_links[link_idx][0][1]
                     if in_lane in lane_set:
                         served.add(in_lane)
+                    served_out.add(out_lane)
             self.phase_served_lanes.append(served)
+            self.phase_out_lanes.append(served_out)
+
+    def _lane_vehicle_ids(self) -> dict:
+        """Vehicle IDs per incoming lane, cached for the current sim step."""
+        now = self.env.sim_step
+        if self._lane_veh_ids_cache is None or self._cache_time != now:
+            self._lane_veh_ids_cache = {
+                lane: self.sumo.lane.getLastStepVehicleIDs(lane)
+                for lane in self.lanes
+            }
+            self._lane_waits_cache = None
+            self._cache_time = now
+        return self._lane_veh_ids_cache
 
     def get_accumulated_waiting_time_per_lane(self) -> List[float]:
-        """Returns the accumulated waiting time per lane.
+        """Returns the accumulated waiting time per lane (cached per sim step).
 
         Returns:
             List[float]: List of accumulated waiting time of each intersection lane.
         """
+        veh_ids_per_lane = self._lane_vehicle_ids()
+        if self._lane_waits_cache is not None:
+            return list(self._lane_waits_cache)
         wait_time_per_lane = []
         for lane in self.lanes:
-            veh_list = self.sumo.lane.getLastStepVehicleIDs(lane)
+            veh_list = veh_ids_per_lane[lane]
             wait_time = 0.0
             for veh in veh_list:
                 veh_lane = self.sumo.vehicle.getLaneID(veh)
@@ -473,12 +518,12 @@ class TrafficSignal:
     def get_normalized_waiting_time_per_lane(self) -> List[float]:
         """Returns accumulated waiting time per lane, normalised to [0, 1].
 
-        Normalisation uses env.waiting_time_memory (default 1000 s), which is
-        the maximum window SUMO tracks per vehicle, so the value is always bounded.
+        Normalised by OBS_WAIT_NORM_SECONDS (saturates above it). Typical lane
+        waits are tens of seconds, so a small cap keeps the feature responsive;
+        the old waiting_time_memory cap (1000 s) left it stuck near zero.
         """
-        max_wait = float(getattr(self.env, "waiting_time_memory", 1000))
         return [
-            min(1.0, wt / max_wait)
+            min(1.0, wt / float(OBS_WAIT_NORM_SECONDS))
             for wt in self.get_accumulated_waiting_time_per_lane()
         ]
 
@@ -491,9 +536,10 @@ class TrafficSignal:
         return sum(self.sumo.lane.getCO2Emission(lane) for lane in self.lanes)
 
     def _get_veh_list(self):
+        veh_ids_per_lane = self._lane_vehicle_ids()
         veh_list = []
         for lane in self.lanes:
-            veh_list += self.sumo.lane.getLastStepVehicleIDs(lane)
+            veh_list += list(veh_ids_per_lane[lane])
         return veh_list
 
     @classmethod

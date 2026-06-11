@@ -438,6 +438,10 @@ class SumoEnvironment(gym.Env):
         """Return the action space of a traffic signal."""
         return self.traffic_signals[ts_id].action_space
 
+    def action_masks(self, ts_id: str) -> np.ndarray:
+        """Return the current valid-action mask of a traffic signal."""
+        return self.traffic_signals[ts_id].get_action_mask()
+
     def _sumo_step(self):
         self.sumo.simulationStep()
         self.num_arrived_vehicles += self.sumo.simulation.getArrivedNumber()

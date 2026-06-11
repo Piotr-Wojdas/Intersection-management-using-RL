@@ -1,0 +1,329 @@
+Plik wag: C:\Users\rondo\Desktop\Sys auto projeekt\src\outputs\ppo_models_weights_8.pth
+Plik najlepszego modelu: C:\Users\rondo\Desktop\Sys auto projeekt\src\outputs\ppo_models_weights_8_best.pth
+Plik logu: C:\Users\rondo\Desktop\Sys auto projeekt\src\logs\trening_8.txt
+Używam urządzenia: cpu | seed=42
+Stworzono niezależne modele PPO dla 6 skrzyżowań (obs_dims={'J0': 21, 'J1': 24, 'J10': 18, 'J2': 27, 'J4': 23, 'J7': 22}).
+
+Uruchamiam epokę uczenia #1 | lr=0.000250 | entropy_coef=0.010000
+Nagroda per agent: J0=-17.782, J1=-81.497, J10=-36.160, J2=-56.883, J4=-36.164, J7=-176.976
+Srednia nagroda na agenta: -67.577
+Diagnostyka: explained_var=-0.891 | actor_loss=-0.0005 | critic_loss=0.0164 | entropia=0.497 | approx_KL=0.0001 | clip_frac=0.000 | grad_norm=0.16
+
+Uruchamiam epokę uczenia #2 | lr=0.000249 | entropy_coef=0.009977
+Nagroda per agent: J0=-17.828, J1=-84.653, J10=-35.142, J2=-33.287, J4=-29.661, J7=-163.410
+Srednia nagroda na agenta: -60.663
+Diagnostyka: explained_var=0.370 | actor_loss=-0.0059 | critic_loss=0.0150 | entropia=0.494 | approx_KL=0.0001 | clip_frac=0.000 | grad_norm=0.17
+
+Uruchamiam epokę uczenia #3 | lr=0.000248 | entropy_coef=0.009953
+Nagroda per agent: J0=-15.778, J1=-96.829, J10=-32.371, J2=-33.311, J4=-34.965, J7=-157.851
+Srednia nagroda na agenta: -61.851
+Diagnostyka: explained_var=0.632 | actor_loss=-0.0105 | critic_loss=0.0104 | entropia=0.498 | approx_KL=0.0003 | clip_frac=0.000 | grad_norm=0.16
+
+Uruchamiam epokę uczenia #4 | lr=0.000248 | entropy_coef=0.009930
+Nagroda per agent: J0=-17.538, J1=-103.814, J10=-33.355, J2=-24.757, J4=-32.485, J7=-112.457
+Srednia nagroda na agenta: -54.068
+Diagnostyka: explained_var=0.738 | actor_loss=-0.0001 | critic_loss=0.0105 | entropia=0.495 | approx_KL=0.0003 | clip_frac=0.000 | grad_norm=0.16
+
+Uruchamiam epokę uczenia #5 | lr=0.000247 | entropy_coef=0.009906
+Nagroda per agent: J0=-13.098, J1=-89.236, J10=-32.360, J2=-34.479, J4=-29.273, J7=-149.542
+Srednia nagroda na agenta: -57.998
+Diagnostyka: explained_var=0.774 | actor_loss=-0.0011 | critic_loss=0.0147 | entropia=0.499 | approx_KL=0.0006 | clip_frac=0.002 | grad_norm=0.17
+Ocena greedy: -46.572 | sr. czekanie=2.0s | dojechalo=1200 | teleporty=2 | backlog na koncu=0
+Nowy najlepszy model: C:\Users\rondo\Desktop\Sys auto projeekt\src\outputs\ppo_models_weights_8_best.pth (score=-46.572)
+
+Uruchamiam epokę uczenia #6 | lr=0.000246 | entropy_coef=0.009883
+Nagroda per agent: J0=-14.228, J1=-80.895, J10=-28.319, J2=-29.909, J4=-33.199, J7=-98.984
+Srednia nagroda na agenta: -47.589
+Diagnostyka: explained_var=0.810 | actor_loss=-0.0004 | critic_loss=0.0120 | entropia=0.480 | approx_KL=0.0005 | clip_frac=0.000 | grad_norm=0.16
+
+Uruchamiam epokę uczenia #7 | lr=0.000245 | entropy_coef=0.009860
+Nagroda per agent: J0=-14.666, J1=-86.514, J10=-28.307, J2=-19.145, J4=-26.850, J7=-81.175
+Srednia nagroda na agenta: -42.776
+Diagnostyka: explained_var=0.836 | actor_loss=-0.0074 | critic_loss=0.0072 | entropia=0.463 | approx_KL=0.0010 | clip_frac=0.004 | grad_norm=0.15
+
+Uruchamiam epokę uczenia #8 | lr=0.000245 | entropy_coef=0.009836
+Nagroda per agent: J0=-12.811, J1=-78.398, J10=-28.677, J2=-29.028, J4=-36.071, J7=-83.748
+Srednia nagroda na agenta: -44.789
+Diagnostyka: explained_var=0.787 | actor_loss=-0.0056 | critic_loss=0.0089 | entropia=0.450 | approx_KL=0.0007 | clip_frac=0.001 | grad_norm=0.16
+
+Uruchamiam epokę uczenia #9 | lr=0.000244 | entropy_coef=0.009813
+Nagroda per agent: J0=-11.562, J1=-86.419, J10=-31.958, J2=-14.416, J4=-26.496, J7=-72.545
+Srednia nagroda na agenta: -40.566
+Diagnostyka: explained_var=0.849 | actor_loss=-0.0099 | critic_loss=0.0085 | entropia=0.442 | approx_KL=0.0009 | clip_frac=0.005 | grad_norm=0.14
+
+Uruchamiam epokę uczenia #10 | lr=0.000243 | entropy_coef=0.009789
+Nagroda per agent: J0=-12.746, J1=-89.279, J10=-29.406, J2=-24.225, J4=-34.699, J7=-89.430
+Srednia nagroda na agenta: -46.631
+Diagnostyka: explained_var=0.787 | actor_loss=-0.0054 | critic_loss=0.0095 | entropia=0.426 | approx_KL=0.0007 | clip_frac=0.002 | grad_norm=0.16
+Ocena greedy: -38.716 | sr. czekanie=1.7s | dojechalo=1200 | teleporty=2 | backlog na koncu=0
+Nowy najlepszy model: C:\Users\rondo\Desktop\Sys auto projeekt\src\outputs\ppo_models_weights_8_best.pth (score=-38.716)
+
+Uruchamiam epokę uczenia #11 | lr=0.000242 | entropy_coef=0.009766
+Nagroda per agent: J0=-11.609, J1=-61.930, J10=-24.040, J2=-20.438, J4=-24.292, J7=-59.676
+Srednia nagroda na agenta: -33.664
+Diagnostyka: explained_var=0.873 | actor_loss=0.0077 | critic_loss=0.0036 | entropia=0.404 | approx_KL=0.0005 | clip_frac=0.001 | grad_norm=0.15
+
+Uruchamiam epokę uczenia #12 | lr=0.000242 | entropy_coef=0.009742
+Nagroda per agent: J0=-13.952, J1=-68.444, J10=-23.317, J2=-44.742, J4=-21.125, J7=-81.447
+Srednia nagroda na agenta: -42.171
+Diagnostyka: explained_var=0.793 | actor_loss=-0.0071 | critic_loss=0.0081 | entropia=0.396 | approx_KL=0.0009 | clip_frac=0.003 | grad_norm=0.15
+
+Uruchamiam epokę uczenia #13 | lr=0.000241 | entropy_coef=0.009719
+Nagroda per agent: J0=-12.079, J1=-58.960, J10=-20.051, J2=-44.071, J4=-17.954, J7=-71.748
+Srednia nagroda na agenta: -37.477
+Diagnostyka: explained_var=0.809 | actor_loss=-0.0073 | critic_loss=0.0073 | entropia=0.377 | approx_KL=0.0010 | clip_frac=0.009 | grad_norm=0.14
+
+Uruchamiam epokę uczenia #14 | lr=0.000240 | entropy_coef=0.009696
+Nagroda per agent: J0=-10.577, J1=-64.752, J10=-26.239, J2=-22.477, J4=-20.449, J7=-71.941
+Srednia nagroda na agenta: -36.073
+Diagnostyka: explained_var=0.841 | actor_loss=0.0021 | critic_loss=0.0041 | entropia=0.357 | approx_KL=0.0009 | clip_frac=0.010 | grad_norm=0.15
+
+Uruchamiam epokę uczenia #15 | lr=0.000239 | entropy_coef=0.009672
+Nagroda per agent: J0=-11.004, J1=-63.925, J10=-20.307, J2=-16.936, J4=-18.002, J7=-75.313
+Srednia nagroda na agenta: -34.248
+Diagnostyka: explained_var=0.873 | actor_loss=0.0121 | critic_loss=0.0042 | entropia=0.337 | approx_KL=0.0008 | clip_frac=0.006 | grad_norm=0.14
+Ocena greedy: -37.514 | sr. czekanie=1.6s | dojechalo=1200 | teleporty=2 | backlog na koncu=0
+Nowy najlepszy model: C:\Users\rondo\Desktop\Sys auto projeekt\src\outputs\ppo_models_weights_8_best.pth (score=-37.514)
+
+Uruchamiam epokę uczenia #16 | lr=0.000239 | entropy_coef=0.009649
+Nagroda per agent: J0=-11.304, J1=-61.832, J10=-19.076, J2=-14.775, J4=-20.615, J7=-61.652
+Srednia nagroda na agenta: -31.542
+Diagnostyka: explained_var=0.878 | actor_loss=0.0045 | critic_loss=0.0031 | entropia=0.335 | approx_KL=0.0012 | clip_frac=0.014 | grad_norm=0.13
+
+Uruchamiam epokę uczenia #17 | lr=0.000238 | entropy_coef=0.009625
+Nagroda per agent: J0=-9.946, J1=-54.278, J10=-22.859, J2=-25.011, J4=-19.323, J7=-78.445
+Srednia nagroda na agenta: -34.977
+Diagnostyka: explained_var=0.858 | actor_loss=-0.0025 | critic_loss=0.0045 | entropia=0.320 | approx_KL=0.0007 | clip_frac=0.006 | grad_norm=0.12
+
+Uruchamiam epokę uczenia #18 | lr=0.000237 | entropy_coef=0.009602
+Nagroda per agent: J0=-7.944, J1=-57.179, J10=-22.734, J2=-13.025, J4=-21.323, J7=-68.747
+Srednia nagroda na agenta: -31.825
+Diagnostyka: explained_var=0.887 | actor_loss=0.0023 | critic_loss=0.0040 | entropia=0.317 | approx_KL=0.0005 | clip_frac=0.002 | grad_norm=0.13
+
+Uruchamiam epokę uczenia #19 | lr=0.000236 | entropy_coef=0.009579
+Nagroda per agent: J0=-10.665, J1=-51.775, J10=-20.572, J2=-14.357, J4=-19.232, J7=-59.165
+Srednia nagroda na agenta: -29.294
+Diagnostyka: explained_var=0.900 | actor_loss=-0.0026 | critic_loss=0.0022 | entropia=0.307 | approx_KL=0.0008 | clip_frac=0.006 | grad_norm=0.14
+
+Uruchamiam epokę uczenia #20 | lr=0.000236 | entropy_coef=0.009555
+Nagroda per agent: J0=-10.953, J1=-48.936, J10=-23.727, J2=-23.026, J4=-18.661, J7=-77.463
+Srednia nagroda na agenta: -33.794
+Diagnostyka: explained_var=0.862 | actor_loss=0.0118 | critic_loss=0.0039 | entropia=0.293 | approx_KL=0.0003 | clip_frac=0.002 | grad_norm=0.15
+Ocena greedy: -40.727 | sr. czekanie=1.7s | dojechalo=1200 | teleporty=2 | backlog na koncu=0
+
+Uruchamiam epokę uczenia #21 | lr=0.000235 | entropy_coef=0.009532
+Nagroda per agent: J0=-10.915, J1=-51.256, J10=-21.210, J2=-7.983, J4=-18.087, J7=-69.799
+Srednia nagroda na agenta: -29.875
+Diagnostyka: explained_var=0.917 | actor_loss=-0.0026 | critic_loss=0.0034 | entropia=0.280 | approx_KL=0.0003 | clip_frac=0.002 | grad_norm=0.13
+
+Uruchamiam epokę uczenia #22 | lr=0.000234 | entropy_coef=0.009508
+Nagroda per agent: J0=-10.077, J1=-52.903, J10=-20.881, J2=-27.003, J4=-18.580, J7=-71.152
+Srednia nagroda na agenta: -33.433
+Diagnostyka: explained_var=0.853 | actor_loss=-0.0017 | critic_loss=0.0039 | entropia=0.279 | approx_KL=0.0004 | clip_frac=0.002 | grad_norm=0.14
+
+Uruchamiam epokę uczenia #23 | lr=0.000233 | entropy_coef=0.009485
+Nagroda per agent: J0=-9.451, J1=-52.882, J10=-19.321, J2=-16.719, J4=-20.500, J7=-71.581
+Srednia nagroda na agenta: -31.742
+Diagnostyka: explained_var=0.867 | actor_loss=0.0076 | critic_loss=0.0055 | entropia=0.272 | approx_KL=0.0004 | clip_frac=0.002 | grad_norm=0.14
+
+Uruchamiam epokę uczenia #24 | lr=0.000233 | entropy_coef=0.009462
+Nagroda per agent: J0=-9.112, J1=-48.627, J10=-19.415, J2=-10.927, J4=-18.730, J7=-53.048
+Srednia nagroda na agenta: -26.643
+Diagnostyka: explained_var=0.905 | actor_loss=-0.0111 | critic_loss=0.0027 | entropia=0.278 | approx_KL=0.0003 | clip_frac=0.001 | grad_norm=0.15
+
+Uruchamiam epokę uczenia #25 | lr=0.000232 | entropy_coef=0.009438
+Nagroda per agent: J0=-9.423, J1=-52.964, J10=-19.518, J2=-10.768, J4=-19.158, J7=-51.162
+Srednia nagroda na agenta: -27.166
+Diagnostyka: explained_var=0.905 | actor_loss=-0.0132 | critic_loss=0.0019 | entropia=0.257 | approx_KL=0.0006 | clip_frac=0.005 | grad_norm=0.13
+Ocena greedy: -40.504 | sr. czekanie=1.7s | dojechalo=1200 | teleporty=2 | backlog na koncu=0
+
+Uruchamiam epokę uczenia #26 | lr=0.000231 | entropy_coef=0.009415
+Nagroda per agent: J0=-9.452, J1=-54.362, J10=-19.367, J2=-23.119, J4=-18.792, J7=-69.375
+Srednia nagroda na agenta: -32.411
+Diagnostyka: explained_var=0.839 | actor_loss=-0.0012 | critic_loss=0.0044 | entropia=0.250 | approx_KL=0.0009 | clip_frac=0.012 | grad_norm=0.13
+
+Uruchamiam epokę uczenia #27 | lr=0.000230 | entropy_coef=0.009391
+Nagroda per agent: J0=-9.363, J1=-49.660, J10=-21.383, J2=-12.002, J4=-16.979, J7=-59.726
+Srednia nagroda na agenta: -28.185
+Diagnostyka: explained_var=0.896 | actor_loss=-0.0071 | critic_loss=0.0021 | entropia=0.256 | approx_KL=0.0004 | clip_frac=0.003 | grad_norm=0.10
+
+Uruchamiam epokę uczenia #28 | lr=0.000230 | entropy_coef=0.009368
+Nagroda per agent: J0=-8.883, J1=-59.071, J10=-21.863, J2=-14.652, J4=-17.336, J7=-53.229
+Srednia nagroda na agenta: -29.172
+Diagnostyka: explained_var=0.893 | actor_loss=-0.0041 | critic_loss=0.0020 | entropia=0.258 | approx_KL=0.0005 | clip_frac=0.001 | grad_norm=0.13
+
+Uruchamiam epokę uczenia #29 | lr=0.000229 | entropy_coef=0.009344
+Nagroda per agent: J0=-10.459, J1=-57.278, J10=-19.939, J2=-9.867, J4=-17.028, J7=-55.221
+Srednia nagroda na agenta: -28.299
+Diagnostyka: explained_var=0.915 | actor_loss=-0.0106 | critic_loss=0.0019 | entropia=0.256 | approx_KL=0.0005 | clip_frac=0.006 | grad_norm=0.13
+
+Uruchamiam epokę uczenia #30 | lr=0.000228 | entropy_coef=0.009321
+Nagroda per agent: J0=-9.280, J1=-48.690, J10=-21.484, J2=-13.452, J4=-17.516, J7=-80.057
+Srednia nagroda na agenta: -31.747
+Diagnostyka: explained_var=0.882 | actor_loss=0.0011 | critic_loss=0.0049 | entropia=0.253 | approx_KL=0.0005 | clip_frac=0.004 | grad_norm=0.11
+Ocena greedy: -40.750 | sr. czekanie=1.7s | dojechalo=1200 | teleporty=2 | backlog na koncu=0
+
+Uruchamiam epokę uczenia #31 | lr=0.000227 | entropy_coef=0.009298
+Nagroda per agent: J0=-9.749, J1=-54.995, J10=-19.663, J2=-15.806, J4=-16.810, J7=-68.210
+Srednia nagroda na agenta: -30.872
+Diagnostyka: explained_var=0.886 | actor_loss=-0.0011 | critic_loss=0.0035 | entropia=0.246 | approx_KL=0.0002 | clip_frac=0.001 | grad_norm=0.12
+
+Uruchamiam epokę uczenia #32 | lr=0.000227 | entropy_coef=0.009274
+Nagroda per agent: J0=-9.039, J1=-59.004, J10=-20.784, J2=-16.592, J4=-16.723, J7=-71.261
+Srednia nagroda na agenta: -32.234
+Diagnostyka: explained_var=0.861 | actor_loss=-0.0070 | critic_loss=0.0040 | entropia=0.238 | approx_KL=0.0006 | clip_frac=0.004 | grad_norm=0.10
+
+Uruchamiam epokę uczenia #33 | lr=0.000226 | entropy_coef=0.009251
+Nagroda per agent: J0=-8.750, J1=-49.898, J10=-18.099, J2=-10.506, J4=-20.548, J7=-77.790
+Srednia nagroda na agenta: -30.932
+Diagnostyka: explained_var=0.897 | actor_loss=0.0007 | critic_loss=0.0056 | entropia=0.224 | approx_KL=0.0003 | clip_frac=0.003 | grad_norm=0.11
+
+Uruchamiam epokę uczenia #34 | lr=0.000225 | entropy_coef=0.009227
+Nagroda per agent: J0=-9.671, J1=-56.380, J10=-19.287, J2=-16.671, J4=-19.284, J7=-59.693
+Srednia nagroda na agenta: -30.164
+Diagnostyka: explained_var=0.864 | actor_loss=-0.0042 | critic_loss=0.0027 | entropia=0.220 | approx_KL=0.0003 | clip_frac=0.003 | grad_norm=0.12
+
+Uruchamiam epokę uczenia #35 | lr=0.000224 | entropy_coef=0.009204
+Nagroda per agent: J0=-11.041, J1=-53.811, J10=-18.812, J2=-8.134, J4=-18.909, J7=-63.363
+Srednia nagroda na agenta: -29.012
+Diagnostyka: explained_var=0.896 | actor_loss=0.0008 | critic_loss=0.0025 | entropia=0.219 | approx_KL=0.0001 | clip_frac=0.001 | grad_norm=0.11
+Ocena greedy: -39.287 | sr. czekanie=1.4s | dojechalo=1200 | teleporty=0 | backlog na koncu=0
+
+Uruchamiam epokę uczenia #36 | lr=0.000224 | entropy_coef=0.009181
+Nagroda per agent: J0=-8.186, J1=-47.809, J10=-20.390, J2=-9.718, J4=-17.283, J7=-68.454
+Srednia nagroda na agenta: -28.640
+Diagnostyka: explained_var=0.900 | actor_loss=0.0006 | critic_loss=0.0025 | entropia=0.216 | approx_KL=0.0002 | clip_frac=0.002 | grad_norm=0.12
+
+Uruchamiam epokę uczenia #37 | lr=0.000223 | entropy_coef=0.009157
+Nagroda per agent: J0=-9.763, J1=-48.628, J10=-17.858, J2=-15.491, J4=-17.855, J7=-71.027
+Srednia nagroda na agenta: -30.104
+Diagnostyka: explained_var=0.830 | actor_loss=-0.0023 | critic_loss=0.0036 | entropia=0.223 | approx_KL=0.0006 | clip_frac=0.009 | grad_norm=0.13
+
+Uruchamiam epokę uczenia #38 | lr=0.000222 | entropy_coef=0.009134
+Nagroda per agent: J0=-8.797, J1=-56.220, J10=-20.021, J2=-12.029, J4=-17.262, J7=-57.330
+Srednia nagroda na agenta: -28.610
+Diagnostyka: explained_var=0.874 | actor_loss=-0.0100 | critic_loss=0.0024 | entropia=0.225 | approx_KL=0.0008 | clip_frac=0.006 | grad_norm=0.14
+
+Uruchamiam epokę uczenia #39 | lr=0.000221 | entropy_coef=0.009110
+Nagroda per agent: J0=-9.246, J1=-53.333, J10=-20.226, J2=-8.865, J4=-18.210, J7=-58.028
+Srednia nagroda na agenta: -27.985
+Diagnostyka: explained_var=0.898 | actor_loss=0.0050 | critic_loss=0.0025 | entropia=0.207 | approx_KL=0.0003 | clip_frac=0.002 | grad_norm=0.13
+
+Uruchamiam epokę uczenia #40 | lr=0.000221 | entropy_coef=0.009087
+Nagroda per agent: J0=-10.567, J1=-50.391, J10=-21.307, J2=-6.607, J4=-17.134, J7=-59.199
+Srednia nagroda na agenta: -27.534
+Diagnostyka: explained_var=0.903 | actor_loss=0.0156 | critic_loss=0.0034 | entropia=0.203 | approx_KL=0.0004 | clip_frac=0.003 | grad_norm=0.11
+Ocena greedy: -35.630 | sr. czekanie=1.5s | dojechalo=1200 | teleporty=2 | backlog na koncu=0
+Nowy najlepszy model: C:\Users\rondo\Desktop\Sys auto projeekt\src\outputs\ppo_models_weights_8_best.pth (score=-35.630)
+
+Uruchamiam epokę uczenia #41 | lr=0.000220 | entropy_coef=0.009064
+Nagroda per agent: J0=-8.906, J1=-50.341, J10=-18.604, J2=-9.986, J4=-17.826, J7=-75.724
+Srednia nagroda na agenta: -30.231
+Diagnostyka: explained_var=0.849 | actor_loss=0.0155 | critic_loss=0.0052 | entropia=0.195 | approx_KL=0.0003 | clip_frac=0.004 | grad_norm=0.10
+
+Uruchamiam epokę uczenia #42 | lr=0.000219 | entropy_coef=0.009040
+Nagroda per agent: J0=-8.670, J1=-50.575, J10=-19.279, J2=-9.859, J4=-16.953, J7=-64.450
+Srednia nagroda na agenta: -28.298
+Diagnostyka: explained_var=0.880 | actor_loss=-0.0040 | critic_loss=0.0037 | entropia=0.200 | approx_KL=0.0005 | clip_frac=0.005 | grad_norm=0.12
+
+Uruchamiam epokę uczenia #43 | lr=0.000218 | entropy_coef=0.009017
+Nagroda per agent: J0=-10.364, J1=-51.400, J10=-19.671, J2=-20.562, J4=-16.090, J7=-48.522
+Srednia nagroda na agenta: -27.768
+Diagnostyka: explained_var=0.849 | actor_loss=0.0140 | critic_loss=0.0027 | entropia=0.215 | approx_KL=0.0003 | clip_frac=0.001 | grad_norm=0.09
+
+Uruchamiam epokę uczenia #44 | lr=0.000218 | entropy_coef=0.008993
+Nagroda per agent: J0=-8.991, J1=-51.793, J10=-18.766, J2=-14.250, J4=-17.053, J7=-56.714
+Srednia nagroda na agenta: -27.928
+Diagnostyka: explained_var=0.862 | actor_loss=0.0067 | critic_loss=0.0023 | entropia=0.216 | approx_KL=0.0004 | clip_frac=0.006 | grad_norm=0.12
+
+Uruchamiam epokę uczenia #45 | lr=0.000217 | entropy_coef=0.008970
+Nagroda per agent: J0=-9.652, J1=-51.833, J10=-18.913, J2=-18.061, J4=-17.837, J7=-66.331
+Srednia nagroda na agenta: -30.438
+Diagnostyka: explained_var=0.849 | actor_loss=0.0015 | critic_loss=0.0030 | entropia=0.223 | approx_KL=0.0004 | clip_frac=0.006 | grad_norm=0.11
+Ocena greedy: -28.668 | sr. czekanie=0.8s | dojechalo=1200 | teleporty=0 | backlog na koncu=0
+Nowy najlepszy model: C:\Users\rondo\Desktop\Sys auto projeekt\src\outputs\ppo_models_weights_8_best.pth (score=-28.668)
+
+Uruchamiam epokę uczenia #46 | lr=0.000216 | entropy_coef=0.008946
+Nagroda per agent: J0=-9.311, J1=-49.558, J10=-18.834, J2=-10.105, J4=-18.667, J7=-64.627
+Srednia nagroda na agenta: -28.517
+Diagnostyka: explained_var=0.902 | actor_loss=0.0107 | critic_loss=0.0027 | entropia=0.220 | approx_KL=0.0006 | clip_frac=0.005 | grad_norm=0.12
+
+Uruchamiam epokę uczenia #47 | lr=0.000215 | entropy_coef=0.008923
+Nagroda per agent: J0=-9.958, J1=-51.379, J10=-17.592, J2=-11.746, J4=-17.217, J7=-74.806
+Srednia nagroda na agenta: -30.449
+Diagnostyka: explained_var=0.866 | actor_loss=-0.0026 | critic_loss=0.0037 | entropia=0.222 | approx_KL=0.0005 | clip_frac=0.003 | grad_norm=0.12
+
+Uruchamiam epokę uczenia #48 | lr=0.000215 | entropy_coef=0.008900
+Nagroda per agent: J0=-8.490, J1=-54.846, J10=-18.326, J2=-24.311, J4=-16.874, J7=-59.745
+Srednia nagroda na agenta: -30.432
+Diagnostyka: explained_var=0.849 | actor_loss=-0.0023 | critic_loss=0.0046 | entropia=0.228 | approx_KL=0.0002 | clip_frac=0.001 | grad_norm=0.14
+
+Uruchamiam epokę uczenia #49 | lr=0.000214 | entropy_coef=0.008876
+Nagroda per agent: J0=-9.177, J1=-47.146, J10=-17.749, J2=-8.528, J4=-16.425, J7=-60.676
+Srednia nagroda na agenta: -26.617
+Diagnostyka: explained_var=0.909 | actor_loss=-0.0041 | critic_loss=0.0036 | entropia=0.224 | approx_KL=0.0004 | clip_frac=0.001 | grad_norm=0.17
+
+Uruchamiam epokę uczenia #50 | lr=0.000213 | entropy_coef=0.008853
+Nagroda per agent: J0=-9.358, J1=-48.105, J10=-20.103, J2=-11.824, J4=-16.574, J7=-64.311
+Srednia nagroda na agenta: -28.379
+Diagnostyka: explained_var=0.865 | actor_loss=-0.0055 | critic_loss=0.0038 | entropia=0.216 | approx_KL=0.0008 | clip_frac=0.005 | grad_norm=0.16
+Ocena greedy: -32.102 | sr. czekanie=0.9s | dojechalo=1200 | teleporty=0 | backlog na koncu=0
+
+Uruchamiam epokę uczenia #51 | lr=0.000212 | entropy_coef=0.008829
+Nagroda per agent: J0=-10.003, J1=-48.612, J10=-19.439, J2=-9.936, J4=-18.196, J7=-73.217
+Srednia nagroda na agenta: -29.900
+Diagnostyka: explained_var=0.884 | actor_loss=0.0061 | critic_loss=0.0036 | entropia=0.204 | approx_KL=0.0004 | clip_frac=0.003 | grad_norm=0.13
+
+Uruchamiam epokę uczenia #52 | lr=0.000212 | entropy_coef=0.008806
+Nagroda per agent: J0=-9.282, J1=-52.351, J10=-18.606, J2=-11.593, J4=-15.784, J7=-60.039
+Srednia nagroda na agenta: -27.943
+Diagnostyka: explained_var=0.895 | actor_loss=0.0054 | critic_loss=0.0023 | entropia=0.197 | approx_KL=0.0002 | clip_frac=0.001 | grad_norm=0.15
+
+Uruchamiam epokę uczenia #53 | lr=0.000211 | entropy_coef=0.008783
+Nagroda per agent: J0=-9.596, J1=-47.601, J10=-19.055, J2=-10.738, J4=-18.489, J7=-66.068
+Srednia nagroda na agenta: -28.591
+Diagnostyka: explained_var=0.874 | actor_loss=-0.0014 | critic_loss=0.0031 | entropia=0.199 | approx_KL=0.0010 | clip_frac=0.012 | grad_norm=0.11
+
+Uruchamiam epokę uczenia #54 | lr=0.000210 | entropy_coef=0.008759
+Nagroda per agent: J0=-8.613, J1=-49.903, J10=-19.754, J2=-9.467, J4=-16.872, J7=-61.208
+Srednia nagroda na agenta: -27.636
+Diagnostyka: explained_var=0.905 | actor_loss=-0.0051 | critic_loss=0.0029 | entropia=0.198 | approx_KL=0.0008 | clip_frac=0.012 | grad_norm=0.13
+
+Uruchamiam epokę uczenia #55 | lr=0.000209 | entropy_coef=0.008736
+Nagroda per agent: J0=-8.758, J1=-53.381, J10=-20.609, J2=-8.564, J4=-19.057, J7=-45.297
+Srednia nagroda na agenta: -25.944
+Diagnostyka: explained_var=0.905 | actor_loss=0.0011 | critic_loss=0.0018 | entropia=0.205 | approx_KL=0.0006 | clip_frac=0.006 | grad_norm=0.14
+Ocena greedy: -30.758 | sr. czekanie=1.0s | dojechalo=1200 | teleporty=0 | backlog na koncu=0
+
+Uruchamiam epokę uczenia #56 | lr=0.000209 | entropy_coef=0.008712
+Nagroda per agent: J0=-10.340, J1=-52.945, J10=-18.237, J2=-10.685, J4=-16.653, J7=-59.211
+Srednia nagroda na agenta: -28.012
+Diagnostyka: explained_var=0.894 | actor_loss=-0.0147 | critic_loss=0.0029 | entropia=0.208 | approx_KL=0.0003 | clip_frac=0.001 | grad_norm=0.14
+
+Uruchamiam epokę uczenia #57 | lr=0.000208 | entropy_coef=0.008689
+Nagroda per agent: J0=-8.831, J1=-50.821, J10=-19.536, J2=-8.880, J4=-19.280, J7=-56.783
+Srednia nagroda na agenta: -27.355
+Diagnostyka: explained_var=0.920 | actor_loss=0.0078 | critic_loss=0.0022 | entropia=0.210 | approx_KL=0.0003 | clip_frac=0.002 | grad_norm=0.13
+
+Uruchamiam epokę uczenia #58 | lr=0.000207 | entropy_coef=0.008666
+Nagroda per agent: J0=-7.321, J1=-49.245, J10=-21.675, J2=-7.599, J4=-18.582, J7=-79.207
+Srednia nagroda na agenta: -30.605
+Diagnostyka: explained_var=0.911 | actor_loss=0.0006 | critic_loss=0.0042 | entropia=0.195 | approx_KL=0.0004 | clip_frac=0.000 | grad_norm=0.12
+
+Uruchamiam epokę uczenia #59 | lr=0.000206 | entropy_coef=0.008642
+Nagroda per agent: J0=-8.750, J1=-46.433, J10=-21.729, J2=-9.283, J4=-18.240, J7=-74.273
+Srednia nagroda na agenta: -29.785
+Diagnostyka: explained_var=0.921 | actor_loss=-0.0014 | critic_loss=0.0038 | entropia=0.197 | approx_KL=0.0004 | clip_frac=0.004 | grad_norm=0.11
+
+Uruchamiam epokę uczenia #60 | lr=0.000206 | entropy_coef=0.008619
+Nagroda per agent: J0=-9.059, J1=-53.835, J10=-20.572, J2=-10.314, J4=-18.980, J7=-65.899
+Srednia nagroda na agenta: -29.777
+Diagnostyka: explained_var=0.914 | actor_loss=-0.0064 | critic_loss=0.0025 | entropia=0.200 | approx_KL=0.0002 | clip_frac=0.001 | grad_norm=0.11
+Ocena greedy: -29.009 | sr. czekanie=0.7s | dojechalo=1200 | teleporty=0 | backlog na koncu=0
+
+Uruchamiam epokę uczenia #61 | lr=0.000205 | entropy_coef=0.008595
+Nagroda per agent: J0=-9.450, J1=-48.763, J10=-17.646, J2=-9.244, J4=-17.458, J7=-53.829
+Srednia nagroda na agenta: -26.065
+Diagnostyka: explained_var=0.908 | actor_loss=-0.0095 | critic_loss=0.0019 | entropia=0.200 | approx_KL=0.0004 | clip_frac=0.002 | grad_norm=0.14
+
+Uruchamiam epokę uczenia #62 | lr=0.000204 | entropy_coef=0.008572

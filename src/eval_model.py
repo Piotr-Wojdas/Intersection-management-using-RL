@@ -1,29 +1,27 @@
 import os
 import time
 
+import numpy as np
 import torch
 
-from src.agent_ppo import SharedPPOAgent
-from src.params import (
-    ENV_CONFIG,
-    NET_FILE,
-    ROUTE_FILE,
-    build_eval_log_file,
-    resolve_eval_weights_file,
-)
-from src.utils import env_reset, env_step, make_log_fn, pad_observation, resolve_device
-from src.Sumo.sumo_rl import SumoEnvironment
+from src.agent_ppo import PPOAgent, _action_mask_tensor, build_env
+from src.params import build_eval_log_file, resolve_eval_weights_file
+from src.utils import env_reset, env_step, make_log_fn, obs_to_tensor, resolve_device
 
 
-def play(use_gui: bool | None = None, sleep_seconds: float = 0.15):
+def _load_checkpoint(weights_file_path: str, device: torch.device, log):
+    try:
+        return torch.load(weights_file_path, map_location=device, weights_only=True)
+    except Exception as exc:
+        # Older checkpoints store numpy scalars (act_dims), which strict
+        # weights_only loading rejects. Our own files are trusted.
+        log(f"weights_only=True nie powiodło się ({exc}); ładuję bez ograniczeń.")
+        return torch.load(weights_file_path, map_location=device, weights_only=False)
+
+
+def play(use_gui: bool = True, sleep_seconds: float = 0.15):
     device = resolve_device()
-
-    env_args = dict(ENV_CONFIG)
-    env_args.setdefault("net_file", NET_FILE)
-    env_args.setdefault("route_file", ROUTE_FILE)
-    if use_gui is not None:
-        env_args["use_gui"] = use_gui
-    env = SumoEnvironment(**env_args)
+    env = build_env(use_gui=use_gui)
 
     log_file_path = build_eval_log_file()
     weights_file_path = resolve_eval_weights_file()
@@ -33,22 +31,18 @@ def play(use_gui: bool | None = None, sleep_seconds: float = 0.15):
 
     try:
         ts_ids = env.ts_ids
-        obs_dims = {ts: env.observation_spaces(ts).shape[0] for ts in ts_ids}
-        act_dims = {ts: env.action_spaces(ts).n for ts in ts_ids}
+        obs_dims = {ts: int(env.observation_spaces(ts).shape[0]) for ts in ts_ids}
+        act_dims = {ts: int(env.action_spaces(ts).n) for ts in ts_ids}
 
-        agents: dict[str, SharedPPOAgent] = {}
+        agents: dict[str, PPOAgent] = {}
         for ts in ts_ids:
-            agents[ts] = SharedPPOAgent(obs_dims[ts], act_dims[ts]).to(device)
+            agents[ts] = PPOAgent(obs_dims[ts], act_dims[ts]).to(device)
 
         log(f"Weights file: {weights_file_path}")
         log(f"Log file: {log_file_path}")
 
         if os.path.exists(weights_file_path):
-            checkpoint = torch.load(
-                weights_file_path,
-                map_location=device,
-                weights_only=True,
-            )
+            checkpoint = _load_checkpoint(weights_file_path, device, log)
             state_dict = (
                 checkpoint.get("model_state_dict", checkpoint)
                 if isinstance(checkpoint, dict)
@@ -59,17 +53,27 @@ def play(use_gui: bool | None = None, sleep_seconds: float = 0.15):
                     agents[ts].load_state_dict(state_dict[ts])
                 log(f"Loaded per-agent models from {weights_file_path}")
             else:
+                loaded = 0
                 for ts in ts_ids:
                     try:
                         agents[ts].load_state_dict(state_dict)
+                        loaded += 1
                     except Exception:
                         pass
-                log(f"Loaded broadcast model from {weights_file_path}")
+                if loaded:
+                    log(
+                        f"Loaded broadcast model into {loaded}/{len(ts_ids)} agents "
+                        f"from {weights_file_path}"
+                    )
+                else:
+                    log("WARNING: checkpoint did not match any agent — random policies.")
         else:
             log(f"WARNING: no weights at {weights_file_path}. Running with random policy.")
 
         obs_dict = env_reset(env)
         reward_sum = {ts: 0.0 for ts in ts_ids}
+        wait_means: list[float] = []
+        last_info: dict = {}
         steps = 0
 
         log("Starting evaluation on city_map_2...")
@@ -78,11 +82,8 @@ def play(use_gui: bool | None = None, sleep_seconds: float = 0.15):
         while not done:
             actions_dict = {
                 ts: agents[ts].get_greedy_action(
-                    pad_observation(
-                        torch.tensor(obs_dict[ts], dtype=torch.float32, device=device),
-                        obs_dims[ts],
-                    ),
-                    valid_action_dim=act_dims[ts],
+                    obs_to_tensor(obs_dict[ts], obs_dims[ts], device),
+                    action_mask=_action_mask_tensor(env, ts, device),
                 )
                 for ts in ts_ids
                 if ts in obs_dict
@@ -93,9 +94,14 @@ def play(use_gui: bool | None = None, sleep_seconds: float = 0.15):
             if isinstance(rewards_dict, dict):
                 for ts in ts_ids:
                     reward_sum[ts] += float(rewards_dict.get(ts, 0.0))
+            if isinstance(info, dict):
+                last_info = info
+                if "system_mean_waiting_time" in info:
+                    wait_means.append(float(info["system_mean_waiting_time"]))
 
             steps += 1
-            time.sleep(sleep_seconds)
+            if sleep_seconds > 0:
+                time.sleep(sleep_seconds)
 
             if steps % 100 == 0:
                 log(
@@ -111,6 +117,13 @@ def play(use_gui: bool | None = None, sleep_seconds: float = 0.15):
         log(f"Steps taken: {steps}")
         for ts in ts_ids:
             log(f"Agent {ts} - total reward: {reward_sum[ts]:.3f}")
+        if wait_means:
+            log(f"Srednie czekanie (system): {float(np.mean(wait_means)):.1f}s")
+        log(
+            f"Dojechalo: {last_info.get('system_total_arrived', 'n/d')} | "
+            f"teleporty: {last_info.get('system_total_teleported', 'n/d')} | "
+            f"backlog na koncu: {last_info.get('system_total_backlogged', 'n/d')}"
+        )
 
         env.close()
     finally:

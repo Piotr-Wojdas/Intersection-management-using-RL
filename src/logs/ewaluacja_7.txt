@@ -1,0 +1,10 @@
+Weights file: C:\Users\rondo\Desktop\Sys auto projeekt\src\outputs\ppo_models_weights_8_best.pth
+Log file: C:\Users\rondo\Desktop\Sys auto projeekt\src\logs\ewaluacja_7.txt
+Loaded per-agent models from C:\Users\rondo\Desktop\Sys auto projeekt\src\outputs\ppo_models_weights_8_best.pth
+Starting evaluation on city_map_2...
+[eval] step=100 running=21 backlogged=0 teleported=0 mean_wait=0.047619047619047616
+[eval] step=200 running=31 backlogged=0 teleported=0 mean_wait=0.7419354838709677
+[eval] step=300 running=33 backlogged=0 teleported=0 mean_wait=0.48484848484848486
+[eval] step=400 running=30 backlogged=1 teleported=0 mean_wait=0.6
+[eval] step=500 running=29 backlogged=0 teleported=0 mean_wait=2.310344827586207
+[eval] step=600 running=28 backlogged=0 teleported=0 mean_wait=0.17857142857142858

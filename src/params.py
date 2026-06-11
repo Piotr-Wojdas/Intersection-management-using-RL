@@ -70,6 +70,16 @@ def build_eval_log_file(run_id: int | None = None) -> str:
     return os.path.join(LOGS_DIR, f"ewaluacja_{run_id}.txt")
 
 
+def get_next_baseline_run_id(mode: str) -> int:
+    return _highest_numbered_suffix(LOGS_DIR, f"baseline_{mode}_", ".txt") + 1
+
+
+def build_baseline_log_file(mode: str, run_id: int | None = None) -> str:
+    if run_id is None:
+        run_id = get_next_baseline_run_id(mode)
+    return os.path.join(LOGS_DIR, f"baseline_{mode}_{run_id}.txt")
+
+
 def _get_latest_weights_file(filename_pattern: str) -> str | None:
     if not os.path.isdir(OUTPUTS_DIR):
         return None
@@ -116,12 +126,26 @@ def resolve_eval_weights_file() -> str:
         f"No trained weights found in {OUTPUTS_DIR}. Run training first."
     )
 
+
+def build_resume_file(run_id: int) -> str:
+    """Path of the full training-state checkpoint used to resume run `run_id`."""
+    return os.path.join(OUTPUTS_DIR, f"ppo_models_weights_{run_id}_resume.pth")
+
+
+def get_latest_resume_run_id() -> int | None:
+    """Highest run id that has a resume checkpoint in OUTPUTS_DIR, else None."""
+    highest = _highest_numbered_suffix(
+        OUTPUTS_DIR, "ppo_models_weights_", "_resume.pth"
+    )
+    return highest if highest > 0 else None
+
+
 # Shared PPO network architecture.
 PPO_HIDDEN_DIMS = [256, 128]
 
 # --- PPO hyperparameters ---
 # Learning rate used by Adam for both actor and critic.
-LEARNING_RATE = 8e-5
+LEARNING_RATE = 2.5e-4
 
 # Number of environment steps collected before each PPO update.
 ROLLOUT_STEPS = 800
@@ -137,9 +161,9 @@ GAMMA = 0.99
 # GAE lambda controlling the bias/variance tradeoff in advantage estimation.
 GAE_LAMBDA = 0.95
 
-# PPO clipping range for the policy ratio.
-# Reduced to 0.15 in run 4 to fix collapse; run 7 is stable for 37+ epochs,
-# so restoring the standard value allows faster policy updates.
+# PPO clipping range for the policy ratio (the value loss is not clipped:
+# returns are unnormalized, so a clipped value loss saturates and freezes
+# the critic).
 CLIP_FRAC = 0.2
 
 # PPO batch and loss controls.
@@ -152,11 +176,24 @@ PPO_ENTROPY_FINAL_FRAC = 0.3
 PPO_VALUE_COEF = 0.5
 PPO_MAX_GRAD_NORM = 0.5
 
+# Rewards are multiplied by this factor before entering the PPO buffer.
+# congestion-aware rewards reach +-20 per step, so episode returns are O(100);
+# scaling keeps value-function targets in a range the critic can fit quickly.
+# Logged episode rewards stay unscaled.
+REWARD_SCALE = 0.1
+
+# Seed for torch/numpy/random in training (SUMO traffic stays "random").
+GLOBAL_SEED = 42
+
 # Evaluation during training.
 TRAIN_EVAL_EVERY_UPDATES = 5
 # List of seeds averaged for a stable eval signal. A single fixed seed can
 # give misleading results — one bad traffic realisation inflates the score.
 TRAIN_EVAL_SEED = [42, 137, 271]
+
+# How often (in updates) to persist a full resume checkpoint, so a hard crash
+# loses at most this many updates. Ctrl+C always saves immediately as well.
+RESUME_SAVE_EVERY_UPDATES = 5
 
 # --- Environment and training configuration ---
 # Keys in this dictionary are passed to `SumoEnvironment(**ENV_CONFIG)`.
@@ -194,11 +231,13 @@ ENV_CONFIG = {
     # Follow predefined traffic-light phases instead of agent actions.
     "fixed_ts": False,
     # Maximum time (seconds) a vehicle may wait to be inserted before SUMO drops it.
-    # Use a positive integer (e.g. 60) to prevent unbounded backlog; -1 disables dropping.
-    "max_depart_delay": 120,
-    # Time in seconds after which SUMO will teleport a stuck vehicle to the end of its edge.
-    # Use a positive integer to enable gridlock teleporting; set to 60 to clear long backlogs.
-    "time_to_teleport": 60,
+    # -1 = never drop. Dropping lets the policy hide congestion by starving the
+    # entry edges: the backlog is invisible to local rewards and gets deleted.
+    "max_depart_delay": -1,
+    # Time in seconds after which SUMO teleports a stuck vehicle to the end of its edge.
+    # Teleports erase accumulated waiting time (a positive reward spike), so a
+    # short window rewards gridlock; 300 (SUMO default) only clears true deadlocks.
+    "time_to_teleport": 300,
     # Show SUMO warnings in the console. Set to False to reduce log spam from SUMO.
     "sumo_warnings": False,
     # Extra command-line arguments passed directly to SUMO.
@@ -212,12 +251,10 @@ NUM_UPDATES = 300
 
 # --- Traffic generation defaults (used by src/City_map/generate_traffic.py) ---
 # Number of vehicles to generate when creating trips/routes.
-# Reduced to ease simulation load during training/diagnostics.
-TRAFFIC_NUM_VEHICLES = 600
+# Matches the demand in the committed city2.rou.xml (1200 vehicles).
+TRAFFIC_NUM_VEHICLES = 1200
 # Duration window (seconds) over which vehicles are distributed.
 TRAFFIC_MAX_TIME = 3000
-# Number of hot destination corners to bias toward.
-TRAFFIC_HOTSPOT_COUNT = 2
 # Fixed destination edges that should be congested more often in every epoch.
 # These must exist as exit edges in the current network.
 TRAFFIC_HOTSPOT_DESTINATIONS = ("E6", "E10", "E13")
@@ -232,8 +269,17 @@ TRAFFIC_HOTSPOT_RATIO = 0.6
 STANDING_WAIT_THRESHOLD = 30
 STANDING_PENALTY_WEIGHT = 0.3
 
+# Weight of the per-vehicle penalty for backlogged (not yet inserted) vehicles.
+# Used by TrafficSignal._pending_vehicle_penalty (not part of congestion-aware).
+PENDING_VEHICLE_PENALTY_WEIGHT = 0.1
+
 # Penalize the total queue inside the controlled network.
 QUEUE_PENALTY_WEIGHT = 0.05
+
+# Cap (seconds) used to normalise per-lane accumulated waiting time in the
+# observation. Typical lane waits are tens of seconds; a small cap keeps the
+# feature responsive instead of sitting near zero.
+OBS_WAIT_NORM_SECONDS = 300
 
 # Exponential waiting penalty (optional): when True, vehicles waiting longer than
 # `STANDING_WAIT_THRESHOLD` incur an exponential penalty that grows with time.

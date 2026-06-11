@@ -1,6 +1,5 @@
 """Shared utilities used by training and evaluation scripts."""
 
-import io
 from typing import IO
 
 import torch
@@ -16,14 +15,18 @@ def resolve_device() -> torch.device:
     return torch.device("cpu")
 
 
-def pad_observation(obs: torch.Tensor, target_dim: int) -> torch.Tensor:
-    if obs.dim() != 1:
-        obs = obs.view(-1)
-    if obs.shape[0] == target_dim:
-        return obs
-    padded = torch.zeros(target_dim, dtype=obs.dtype, device=obs.device)
-    padded[: obs.shape[0]] = obs
-    return padded
+def obs_to_tensor(obs, expected_dim: int, device) -> torch.Tensor:
+    """Convert an observation to a flat float32 tensor and validate its size.
+
+    A size mismatch means the observation function changed relative to the
+    network/checkpoint — fail loudly instead of silently padding with zeros.
+    """
+    tensor = torch.as_tensor(obs, dtype=torch.float32, device=device).view(-1)
+    if tensor.shape[0] != expected_dim:
+        raise ValueError(
+            f"Observation has dim {tensor.shape[0]}, expected {expected_dim}."
+        )
+    return torch.nan_to_num(tensor, nan=0.0, posinf=1.0, neginf=-1.0)
 
 
 def env_reset(env) -> dict:
@@ -34,12 +37,12 @@ def env_reset(env) -> dict:
     return result
 
 
-def env_step(env, actions: dict) -> tuple[dict, dict, dict]:
-    """Step env and normalize the 4- vs 5-element return to (obs, rewards, dones).
+def env_step(env, actions: dict) -> tuple[dict, dict, dict, dict]:
+    """Step env and normalize the 4- vs 5-element return to (obs, rewards, dones, info).
 
     Old SUMO-RL returns (obs, rewards, dones, info).
     Gymnasium returns   (obs, rewards, terminated, truncated, info).
-    Both are collapsed to a unified 3-tuple so callers don't need the branching.
+    Both are collapsed to a unified 4-tuple so callers don't need the branching.
     """
     res = env.step(actions)
     if len(res) == 5:
