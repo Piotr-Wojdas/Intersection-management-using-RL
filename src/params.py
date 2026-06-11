@@ -119,7 +119,7 @@ def resolve_eval_weights_file() -> str:
     if latest_training is not None:
         return latest_training
 
-    return os.path.join(OUTPUTS_DIR, "ppo_models_weights_1_best.pth")
+    return os.path.join(OUTPUTS_DIR, "ppo_models_weights_3_best.pth")
 
 
 # Separate evaluation model path; training uses numbered files created per run.
@@ -129,37 +129,39 @@ EVAL_MODEL_WEIGHTS_FILE = resolve_eval_weights_file()
 MODEL_WEIGHTS_FILE = EVAL_MODEL_WEIGHTS_FILE
 
 # Shared PPO network architecture.
-PPO_HIDDEN_DIMS = [512, 512, 256]
+PPO_HIDDEN_DIMS = [256, 128]
 
 # --- PPO hyperparameters ---
 # Learning rate used by Adam for both actor and critic.
-LEARNING_RATE = 2e-4
+LEARNING_RATE = 8e-5
 
 # Number of environment steps collected before each PPO update.
-ROLLOUT_STEPS = 768
+ROLLOUT_STEPS = 800
 
 # Number of optimization passes over the collected rollout.
-EPOCHS = 12
+EPOCHS = 4
 
 # Discount factor applied to future rewards.
-GAMMA = 0.995
+GAMMA = 0.97
 
 # GAE lambda controlling the bias/variance tradeoff in advantage estimation.
-GAE_LAMBDA = 0.98
+GAE_LAMBDA = 0.95
 
 # PPO clipping range for the policy ratio.
-CLIP_FRAC = 0.2
+CLIP_FRAC = 0.15
 
 # PPO batch and loss controls.
-PPO_MINIBATCH_SIZE = 512
+PPO_MINIBATCH_SIZE = 256
 PPO_ENTROPY_COEF = 0.01
 PPO_ENTROPY_FINAL_FRAC = 0.1
 PPO_VALUE_COEF = 0.5
 PPO_MAX_GRAD_NORM = 0.5
 
 # Evaluation during training.
-TRAIN_EVAL_EVERY_UPDATES = 1
-TRAIN_EVAL_SEED = 42
+TRAIN_EVAL_EVERY_UPDATES = 5
+# List of seeds averaged for a stable eval signal. A single fixed seed can
+# give misleading results — one bad traffic realisation inflates the score.
+TRAIN_EVAL_SEED = [42, 137, 271]
 
 # --- Environment and training configuration ---
 # Keys in this dictionary are passed to `SumoEnvironment(**ENV_CONFIG)`.
@@ -167,19 +169,19 @@ TRAIN_EVAL_SEED = 42
 # if they are not set here.
 ENV_CONFIG = {
     # Whether to launch SUMO GUI instead of headless simulation.
-    "use_gui": True,
+    "use_gui": False,
     # Total simulated seconds in one episode.
-    "num_seconds": 10000,
+    "num_seconds": 4000,
     # Number of simulation seconds between decision points.
     "delta_time": 5,
-    # Yellow-light duration inserted when switching phases. Set to 0 for direct green-to-red switching.
-    "yellow_time": 0,
+    # Yellow-light duration inserted when switching phases.
+    "yellow_time": 3,
     # Minimum green time before a junction may change phase.
-    "min_green": 5,
+    "min_green": 10,
     # Maximum green time before forcing a switch if enforce_max_green is True.
-    "max_green": 50,
+    "max_green": 30,
     # Force a phase change when max_green is reached.
-    "enforce_max_green": False,
+    "enforce_max_green": True,
     # Keep False for multi-agent training; True collapses to a single agent.
     "single_agent": False,
     # Default reward signal used by each traffic signal.
@@ -211,7 +213,7 @@ ENV_CONFIG = {
 }
 
 # Number of outer PPO update loops.
-NUM_UPDATES = 50
+NUM_UPDATES = 200
 
 # --- Traffic generation defaults (used by src/City_map/generate_traffic.py) ---
 # Number of vehicles to generate when creating trips/routes.
@@ -225,13 +227,13 @@ TRAFFIC_HOTSPOT_COUNT = 2
 # These must exist as exit edges in the current network.
 TRAFFIC_HOTSPOT_DESTINATIONS = ("E6", "E10", "E13")
 # Fraction of vehicles directed to hotspot destinations (0..1)
-TRAFFIC_HOTSPOT_RATIO = 0.88
+TRAFFIC_HOTSPOT_RATIO = 0.6
 
 # --- Standing-vehicle penalty ---
 # If a vehicle's waiting time (seconds) exceeds this threshold, it counts as "long-standing".
 # How much to penalize each long-standing vehicle (scalar multiplier).
 STANDING_WAIT_THRESHOLD = 20
-STANDING_PENALTY_WEIGHT = 0.5
+STANDING_PENALTY_WEIGHT = 0.3
 
 # Penalize the global number of vehicles waiting to be inserted into the network.
 PENDING_VEHICLE_PENALTY_WEIGHT = 0.1
@@ -243,5 +245,5 @@ QUEUE_PENALTY_WEIGHT = 0.05
 # `STANDING_WAIT_THRESHOLD` incur an exponential penalty that grows with time.
 # The penalty per-vehicle is: -(STANDING_PENALTY_WEIGHT) * (exp(EXP_WAIT_PENALTY_SCALE * over) - 1) / 100
 # where `over = waiting_time - STANDING_WAIT_THRESHOLD`.
-EXPONENTIAL_WAIT_PENALTY = True
-EXP_WAIT_PENALTY_SCALE = 0.2
+EXPONENTIAL_WAIT_PENALTY = False
+EXP_WAIT_PENALTY_SCALE = 0.05

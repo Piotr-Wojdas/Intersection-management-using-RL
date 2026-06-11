@@ -1,0 +1,168 @@
+Plik wag: C:\Users\RODO\Desktop\Sys auto - Projekt\src\outputs\ppo_models_weights_1.pth
+Plik najlepszego modelu: C:\Users\RODO\Desktop\Sys auto - Projekt\src\outputs\ppo_models_weights_1_best.pth
+Plik logu: C:\Users\RODO\Desktop\Sys auto - Projekt\src\logs\trening_1.txt
+Używam urządzenia: cpu
+Stworzono niezależne modele PPO dla 6 skrzyżowań (obs=18).
+
+Uruchamiam epokę uczenia #1 | lr=0.000200 | entropy_coef=0.010000
+Nagroda per agent: J0=-14.900, J1=-86.564, J10=-42.597, J2=-49.188, J4=-44.703, J7=-156.949
+Srednia nagroda na agenta: -65.817
+Ocena greedy: -3261.124
+Nowy najlepszy model: C:\Users\RODO\Desktop\Sys auto - Projekt\src\outputs\ppo_models_weights_1_best.pth (score=-3261.124)
+
+Uruchamiam epokę uczenia #2 | lr=0.000198 | entropy_coef=0.009909
+Nagroda per agent: J0=-21.475, J1=-81.157, J10=-32.440, J2=-29.945, J4=-34.525, J7=-165.448
+Srednia nagroda na agenta: -60.832
+Ocena greedy: -3048.118
+Nowy najlepszy model: C:\Users\RODO\Desktop\Sys auto - Projekt\src\outputs\ppo_models_weights_1_best.pth (score=-3048.118)
+
+Uruchamiam epokę uczenia #3 | lr=0.000196 | entropy_coef=0.009818
+Nagroda per agent: J0=-16.521, J1=-1379.715, J10=-451.379, J2=-133.729, J4=-4192.269, J7=-2143.413
+Srednia nagroda na agenta: -1386.171
+Ocena greedy: -1744.880
+Nowy najlepszy model: C:\Users\RODO\Desktop\Sys auto - Projekt\src\outputs\ppo_models_weights_1_best.pth (score=-1744.880)
+
+Uruchamiam epokę uczenia #4 | lr=0.000195 | entropy_coef=0.009727
+Nagroda per agent: J0=-17.403, J1=-822.906, J10=-173.709, J2=-25.290, J4=-1855.157, J7=-1767.644
+Srednia nagroda na agenta: -777.018
+Ocena greedy: -2037.300
+
+Uruchamiam epokę uczenia #5 | lr=0.000193 | entropy_coef=0.009636
+Nagroda per agent: J0=-32.690, J1=-1819.688, J10=-1153.030, J2=-323.236, J4=-6048.569, J7=-2530.527
+Srednia nagroda na agenta: -1984.624
+Ocena greedy: -497.822
+Nowy najlepszy model: C:\Users\RODO\Desktop\Sys auto - Projekt\src\outputs\ppo_models_weights_1_best.pth (score=-497.822)
+
+Uruchamiam epokę uczenia #6 | lr=0.000191 | entropy_coef=0.009545
+Nagroda per agent: J0=-40.007, J1=-1677.547, J10=-539.334, J2=-71.510, J4=-4266.783, J7=-1977.003
+Srednia nagroda na agenta: -1428.697
+Ocena greedy: -2136.684
+
+Uruchamiam epokę uczenia #7 | lr=0.000189 | entropy_coef=0.009455
+Nagroda per agent: J0=-68.279, J1=-1249.805, J10=-369.173, J2=-87.596, J4=-2455.096, J7=-1717.333
+Srednia nagroda na agenta: -991.214
+Ocena greedy: -1245.181
+
+Uruchamiam epokę uczenia #8 | lr=0.000187 | entropy_coef=0.009364
+Nagroda per agent: J0=-71.468, J1=-1307.578, J10=-293.490, J2=-31.009, J4=-1963.050, J7=-755.435
+Srednia nagroda na agenta: -737.005
+Ocena greedy: -1082.175
+
+Uruchamiam epokę uczenia #9 | lr=0.000185 | entropy_coef=0.009273
+Nagroda per agent: J0=-42.805, J1=-1139.656, J10=-789.244, J2=-28.295, J4=-3307.618, J7=-737.840
+Srednia nagroda na agenta: -1007.576
+Ocena greedy: -1584.262
+
+Uruchamiam epokę uczenia #10 | lr=0.000184 | entropy_coef=0.009182
+Nagroda per agent: J0=-51.918, J1=-1415.759, J10=-593.733, J2=-22.763, J4=-3860.022, J7=-2042.055
+Srednia nagroda na agenta: -1331.042
+Ocena greedy: -1131.380
+
+Uruchamiam epokę uczenia #11 | lr=0.000182 | entropy_coef=0.009091
+Nagroda per agent: J0=-69.086, J1=-886.136, J10=-599.547, J2=-26.937, J4=-2374.313, J7=-1290.290
+Srednia nagroda na agenta: -874.385
+Ocena greedy: -1046.769
+
+Uruchamiam epokę uczenia #12 | lr=0.000180 | entropy_coef=0.009000
+Nagroda per agent: J0=-71.326, J1=-506.129, J10=-203.220, J2=-14.687, J4=-446.949, J7=-442.697
+Srednia nagroda na agenta: -280.835
+Ocena greedy: -1534.583
+
+Uruchamiam epokę uczenia #13 | lr=0.000178 | entropy_coef=0.008909
+Nagroda per agent: J0=-82.083, J1=-1248.398, J10=-247.324, J2=-15.121, J4=-740.488, J7=-2139.319
+Srednia nagroda na agenta: -745.455
+Ocena greedy: -803.690
+
+Uruchamiam epokę uczenia #14 | lr=0.000176 | entropy_coef=0.008818
+Nagroda per agent: J0=-971.475, J1=-2001.783, J10=-634.905, J2=-32.019, J4=-3756.096, J7=-1729.949
+Srednia nagroda na agenta: -1521.038
+Ocena greedy: -1487.984
+
+Uruchamiam epokę uczenia #15 | lr=0.000175 | entropy_coef=0.008727
+Nagroda per agent: J0=-52.385, J1=-1515.202, J10=-191.633, J2=-36.596, J4=-1406.964, J7=-2118.947
+Srednia nagroda na agenta: -886.954
+Ocena greedy: -1590.561
+
+Uruchamiam epokę uczenia #16 | lr=0.000173 | entropy_coef=0.008636
+Nagroda per agent: J0=-36.433, J1=-1743.509, J10=-559.237, J2=-28.262, J4=-3119.788, J7=-2013.801
+Srednia nagroda na agenta: -1250.172
+Ocena greedy: -1387.382
+
+Uruchamiam epokę uczenia #17 | lr=0.000171 | entropy_coef=0.008545
+Nagroda per agent: J0=-49.773, J1=-1609.654, J10=-159.393, J2=-13.707, J4=-1505.356, J7=-1741.732
+Srednia nagroda na agenta: -846.603
+Ocena greedy: -688.998
+
+Uruchamiam epokę uczenia #18 | lr=0.000169 | entropy_coef=0.008455
+Nagroda per agent: J0=-48.057, J1=-1301.458, J10=-249.478, J2=-19.318, J4=-1917.118, J7=-1572.290
+Srednia nagroda na agenta: -851.287
+Ocena greedy: -1524.591
+
+Uruchamiam epokę uczenia #19 | lr=0.000167 | entropy_coef=0.008364
+Nagroda per agent: J0=-373.397, J1=-2187.376, J10=-650.066, J2=-64.783, J4=-4373.485, J7=-2315.461
+Srednia nagroda na agenta: -1660.761
+Ocena greedy: -1819.392
+
+Uruchamiam epokę uczenia #20 | lr=0.000165 | entropy_coef=0.008273
+Nagroda per agent: J0=-67.210, J1=-1651.979, J10=-37.433, J2=-26.157, J4=-1242.662, J7=-1550.751
+Srednia nagroda na agenta: -762.699
+Ocena greedy: -1792.719
+
+Uruchamiam epokę uczenia #21 | lr=0.000164 | entropy_coef=0.008182
+Nagroda per agent: J0=-46.736, J1=-1488.564, J10=-215.467, J2=-18.442, J4=-1756.828, J7=-1635.968
+Srednia nagroda na agenta: -860.334
+Ocena greedy: -1655.645
+
+Uruchamiam epokę uczenia #22 | lr=0.000162 | entropy_coef=0.008091
+Nagroda per agent: J0=-118.669, J1=-1447.135, J10=-418.977, J2=-20.462, J4=-2285.279, J7=-1932.365
+Srednia nagroda na agenta: -1037.148
+Ocena greedy: -1507.230
+
+Uruchamiam epokę uczenia #23 | lr=0.000160 | entropy_coef=0.008000
+Nagroda per agent: J0=-777.021, J1=-2990.463, J10=-803.405, J2=-70.276, J4=-5156.486, J7=-2644.848
+Srednia nagroda na agenta: -2073.750
+Ocena greedy: -1025.010
+
+Uruchamiam epokę uczenia #24 | lr=0.000158 | entropy_coef=0.007909
+Nagroda per agent: J0=-105.052, J1=-1530.689, J10=-322.974, J2=-25.122, J4=-1989.024, J7=-1787.631
+Srednia nagroda na agenta: -960.082
+Ocena greedy: -1597.494
+
+Uruchamiam epokę uczenia #25 | lr=0.000156 | entropy_coef=0.007818
+Nagroda per agent: J0=-449.640, J1=-2177.636, J10=-165.048, J2=-20.356, J4=-1102.401, J7=-1724.414
+Srednia nagroda na agenta: -939.916
+Ocena greedy: -1393.125
+
+Uruchamiam epokę uczenia #26 | lr=0.000155 | entropy_coef=0.007727
+Nagroda per agent: J0=-461.141, J1=-2016.317, J10=-357.898, J2=-43.718, J4=-1801.116, J7=-1582.057
+Srednia nagroda na agenta: -1043.708
+Ocena greedy: -1304.245
+
+Uruchamiam epokę uczenia #27 | lr=0.000153 | entropy_coef=0.007636
+Nagroda per agent: J0=-91.393, J1=-2196.559, J10=-755.784, J2=-60.722, J4=-4796.305, J7=-2405.303
+Srednia nagroda na agenta: -1717.678
+Ocena greedy: -950.771
+
+Uruchamiam epokę uczenia #28 | lr=0.000151 | entropy_coef=0.007545
+Nagroda per agent: J0=-103.865, J1=-1517.534, J10=-258.096, J2=-32.486, J4=-1599.233, J7=-1464.086
+Srednia nagroda na agenta: -829.217
+Ocena greedy: -1630.900
+
+Uruchamiam epokę uczenia #29 | lr=0.000149 | entropy_coef=0.007455
+Nagroda per agent: J0=-84.519, J1=-1999.147, J10=-603.810, J2=-16.497, J4=-3423.098, J7=-2303.384
+Srednia nagroda na agenta: -1405.076
+Ocena greedy: -1421.986
+
+Uruchamiam epokę uczenia #30 | lr=0.000147 | entropy_coef=0.007364
+Nagroda per agent: J0=-101.156, J1=-1821.599, J10=-519.066, J2=-14.814, J4=-2762.231, J7=-1951.936
+Srednia nagroda na agenta: -1195.134
+Ocena greedy: -1316.521
+
+Uruchamiam epokę uczenia #31 | lr=0.000145 | entropy_coef=0.007273
+Nagroda per agent: J0=-151.223, J1=-1636.001, J10=-372.889, J2=-12.849, J4=-1928.984, J7=-1831.588
+Srednia nagroda na agenta: -988.922
+Ocena greedy: -2031.581
+
+Uruchamiam epokę uczenia #32 | lr=0.000144 | entropy_coef=0.007182
+Nagroda per agent: J0=-260.612, J1=-1611.482, J10=-274.098, J2=-11.501, J4=-1656.032, J7=-1805.321
+Srednia nagroda na agenta: -936.508

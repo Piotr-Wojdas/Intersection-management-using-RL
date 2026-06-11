@@ -1,8 +1,8 @@
 """This module contains the TrafficSignal class, which represents a traffic signal in the simulation."""
 
+import math
 from typing import Callable, List, Union
 
-# Central SUMO setup (ensure SUMO_HOME/tools on sys.path)
 import numpy as np
 from gymnasium import spaces
 
@@ -36,6 +36,10 @@ class TrafficSignal:
 
     # Default min gap of SUMO (see https://sumo.dlr.de/docs/Simulation/Safety.html). Should this be parameterized?
     MIN_GAP = 2.5
+    # Fixed vehicle length used for lane-capacity normalisation. Using the mean
+    # length from getLastStepLength() would return 0 on empty lanes, producing an
+    # inconsistent denominator that varies with traffic state.
+    VEHICLE_LENGTH = 5.0
 
     def __init__(
         self,
@@ -78,6 +82,11 @@ class TrafficSignal:
         self.next_action_time = begin_time
         self.last_ts_waiting_time = 0.0
         self.last_reward = None
+        # Yellow-phase state: set in set_next_phase, cleared in update()
+        self._pending_phase = None
+        self._yellow_phase_end = 0
+        # Starvation penalty: track previous imbalance for difference-based signal
+        self._last_lane_imbalance = 0.0
         self.reward_fn = reward_fn
         self.reward_weights = reward_weights
         self.sumo = sumo
@@ -111,13 +120,15 @@ class TrafficSignal:
             for link in self.sumo.trafficlight.getControlledLinks(self.id)
             if link
         ]
-        self.out_lanes = list(set(self.out_lanes))
+        self.out_lanes = sorted(list(set(self.out_lanes)))
         self.lanes_length = {
             lane: self.sumo.lane.getLength(lane) for lane in self.lanes + self.out_lanes
         }
 
         self.observation_space = self.observation_fn.observation_space()
         self.action_space = spaces.Discrete(self.num_green_phases)
+
+        self._build_phase_lane_mappings()
 
         # Read standing-vehicle penalty params (fallback to defaults if params missing)
         try:
@@ -182,11 +193,17 @@ class TrafficSignal:
         return self.next_action_time == self.env.sim_step
 
     def update(self):
-        """Updates the traffic signal state.
+        """Updates the traffic signal state each simulation second.
 
-        If the traffic signal should act, it will set the next green phase and update the next action time.
+        Applies the pending green phase once the yellow window has elapsed.
         """
         self.time_since_last_phase_change += 1
+        if self._pending_phase is not None and self.env.sim_step >= self._yellow_phase_end:
+            self.green_phase = self._pending_phase
+            self.sumo.trafficlight.setRedYellowGreenState(
+                self.id, self.all_phases[self._pending_phase].state
+            )
+            self._pending_phase = None
 
     def set_next_phase(self, new_phase: int):
         """Sets what will be the next green phase.
@@ -196,32 +213,47 @@ class TrafficSignal:
         """
         new_phase = int(new_phase)
 
-        # Ensure max green time is enforced if needed
+        # Enforce max-green: when the agent wants to hold but time is up, force a
+        # switch to the non-current phase with the highest incoming queue so that
+        # the most congested approach is served first.
         if (
             self.enforce_max_green
             and new_phase == self.green_phase
             and self.time_since_last_phase_change >= self.max_green
         ):
-            new_phase = (
-                self.green_phase + 1
-            ) % self.num_green_phases  # Next phase is activated
+            best_phase = (self.green_phase + 1) % self.num_green_phases
+            best_queue = -1
+            for p in range(self.num_green_phases):
+                if p == self.green_phase:
+                    continue
+                q = sum(
+                    self.sumo.lane.getLastStepHaltingNumber(lane)
+                    for lane in self.phase_served_lanes[p]
+                )
+                if q > best_queue:
+                    best_queue = q
+                    best_phase = p
+            new_phase = best_phase
 
         if (
             self.green_phase == new_phase
             or self.time_since_last_phase_change < self.min_green
         ):
+            # Hold current phase — no yellow needed.
             self.sumo.trafficlight.setRedYellowGreenState(
                 self.id, self.all_phases[self.green_phase].state
             )
             self.next_action_time = self.env.sim_step + self.delta_time
         else:
-            self.sumo.trafficlight.setRedYellowGreenState(
-                self.id,
-                self.all_phases[new_phase].state,
-            )
-            self.green_phase = new_phase
+            # Phase change: insert yellow transition, then switch to new green in update().
+            current_state = self.all_phases[self.green_phase].state
+            yellow_state = "".join("y" if c in "Gg" else "r" for c in current_state)
+            self.sumo.trafficlight.setRedYellowGreenState(self.id, yellow_state)
+            self._pending_phase = new_phase
+            self._yellow_phase_end = self.env.sim_step + self.yellow_time
             self.next_action_time = self.env.sim_step + self.delta_time
             self.time_since_last_phase_change = 0
+            # green_phase is updated in update() once yellow_time has elapsed.
 
     def compute_observation(self):
         """Computes the observation of the traffic signal."""
@@ -265,20 +297,21 @@ class TrafficSignal:
         return -self._pending_vehicle_penalty_weight * pending
 
     def _congestion_aware_reward(self):
-        # Local waiting-time improvement plus penalties for local queue and global backlog.
+        # Local signal components only — no global pending penalty, which is
+        # outside any single agent's control and introduces spurious coupling.
         reward = self._diff_waiting_time_reward()
         reward -= self._queue_penalty_weight * self.get_total_queued()
         reward += self._standing_penalty()
         reward += self._starvation_penalty()
-        reward += self._pending_vehicle_penalty()
-        return reward
+        return float(np.clip(reward, -20.0, 20.0))
 
     def _standing_penalty(self):
         """Penalty proportional to the number of vehicles whose waiting time exceeds threshold."""
-        import math
-
         if self._exp_wait_penalty_enabled:
             penalty = 0.0
+            # Cap exponential growth to prevent reward explosion under heavy congestion.
+            max_exp_arg = 8.0
+            max_total_penalty = 1e4
             for lane in self.lanes:
                 for veh in self.sumo.lane.getLastStepVehicleIDs(lane):
                     try:
@@ -287,9 +320,11 @@ class TrafficSignal:
                         wt = 0.0
                     over = max(0.0, wt - self._standing_wait_threshold)
                     if over > 0:
+                        exp_arg = min(self._exp_wait_penalty_scale * over, max_exp_arg)
                         penalty += (
-                            math.exp(self._exp_wait_penalty_scale * over) - 1.0
+                            math.exp(exp_arg) - 1.0
                         ) / 100.0
+            penalty = min(penalty, max_total_penalty)
             return -self._standing_penalty_weight * penalty
 
         # Original count-based penalty
@@ -305,30 +340,43 @@ class TrafficSignal:
         return -self._standing_penalty_weight * count
 
     def _starvation_penalty(self):
-        """Penalty for letting one incoming lane wait much longer than the others."""
+        """Penalty for the step-wise increase in waiting-time imbalance between lanes.
+
+        Uses the change in imbalance (delta) rather than the raw accumulated value so
+        that the signal stays stationary across the episode — a constant imbalance gives
+        zero penalty, only a growing one is penalised.
+        """
         lane_waits = self.get_accumulated_waiting_time_per_lane()
-        if not lane_waits:
+        if len(lane_waits) < 2:
             return 0.0
 
-        worst_wait = max(lane_waits)
-        if worst_wait < self._standing_wait_threshold:
+        avg_wait = sum(lane_waits) / len(lane_waits)
+        current_imbalance = max(lane_waits) - avg_wait
+        delta = current_imbalance - self._last_lane_imbalance
+        self._last_lane_imbalance = current_imbalance
+
+        if delta < self._standing_wait_threshold:
             return 0.0
 
-        return (
-            -self._standing_penalty_weight
-            * (worst_wait - self._standing_wait_threshold)
-            / 100.0
-        )
+        return -self._standing_penalty_weight * delta / 100.0
 
-    def _observation_fn_default(self):
-        phase_id = [
-            1 if self.green_phase == i else 0 for i in range(self.num_green_phases)
-        ]  # one-hot encoding
-        min_green = [0 if self.time_since_last_phase_change < self.min_green else 1]
-        density = self.get_lanes_density()
-        queue = self.get_lanes_queue()
-        observation = np.array(phase_id + min_green + density + queue, dtype=np.float32)
-        return observation
+    def _build_phase_lane_mappings(self):
+        """Pre-compute which incoming lanes each green phase serves.
+
+        Used by enforce_max_green to pick the most congested waiting phase when a
+        forced switch is required instead of cycling blindly.
+        """
+        controlled_links = self.sumo.trafficlight.getControlledLinks(self.id)
+        lane_set = set(self.lanes)
+        self.phase_served_lanes = []
+        for phase in self.green_phases:
+            served = set()
+            for link_idx, char in enumerate(phase.state):
+                if char in "Gg" and link_idx < len(controlled_links) and controlled_links[link_idx]:
+                    in_lane = controlled_links[link_idx][0][0]
+                    if in_lane in lane_set:
+                        served.add(in_lane)
+            self.phase_served_lanes.append(served)
 
     def get_accumulated_waiting_time_per_lane(self) -> List[float]:
         """Returns the accumulated waiting time per lane.
@@ -380,12 +428,10 @@ class TrafficSignal:
 
     def get_out_lanes_density(self) -> List[float]:
         """Returns the density of the vehicles in the outgoing lanes of the intersection."""
+        cap = self.MIN_GAP + self.VEHICLE_LENGTH
         lanes_density = [
             self.sumo.lane.getLastStepVehicleNumber(lane)
-            / (
-                self.lanes_length[lane]
-                / (self.MIN_GAP + self.sumo.lane.getLastStepLength(lane))
-            )
+            / (self.lanes_length[lane] / cap)
             for lane in self.out_lanes
         ]
         return [min(1, density) for density in lanes_density]
@@ -395,12 +441,10 @@ class TrafficSignal:
 
         Obs: The density is computed as the number of vehicles divided by the number of vehicles that could fit in the lane.
         """
+        cap = self.MIN_GAP + self.VEHICLE_LENGTH
         lanes_density = [
             self.sumo.lane.getLastStepVehicleNumber(lane)
-            / (
-                self.lanes_length[lane]
-                / (self.MIN_GAP + self.sumo.lane.getLastStepLength(lane))
-            )
+            / (self.lanes_length[lane] / cap)
             for lane in self.lanes
         ]
         return [min(1, density) for density in lanes_density]
@@ -410,15 +454,25 @@ class TrafficSignal:
 
         Obs: The queue is computed as the number of vehicles halting divided by the number of vehicles that could fit in the lane.
         """
+        cap = self.MIN_GAP + self.VEHICLE_LENGTH
         lanes_queue = [
             self.sumo.lane.getLastStepHaltingNumber(lane)
-            / (
-                self.lanes_length[lane]
-                / (self.MIN_GAP + self.sumo.lane.getLastStepLength(lane))
-            )
+            / (self.lanes_length[lane] / cap)
             for lane in self.lanes
         ]
         return [min(1, queue) for queue in lanes_queue]
+
+    def get_normalized_waiting_time_per_lane(self) -> List[float]:
+        """Returns accumulated waiting time per lane, normalised to [0, 1].
+
+        Normalisation uses env.waiting_time_memory (default 1000 s), which is
+        the maximum window SUMO tracks per vehicle, so the value is always bounded.
+        """
+        max_wait = float(getattr(self.env, "waiting_time_memory", 1000))
+        return [
+            min(1.0, wt / max_wait)
+            for wt in self.get_accumulated_waiting_time_per_lane()
+        ]
 
     def get_total_queued(self) -> int:
         """Returns the total number of vehicles halting in the intersection."""

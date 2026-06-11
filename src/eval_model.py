@@ -3,7 +3,7 @@ import time
 
 import torch
 
-from src.agent_ppo import SharedPPOAgent, pad_observation
+from src.agent_ppo import SharedPPOAgent
 from src.params import (
     ENV_CONFIG,
     NET_FILE,
@@ -11,36 +11,20 @@ from src.params import (
     build_eval_log_file,
     resolve_eval_weights_file,
 )
+from src.utils import pad_observation, resolve_device
 from src.Sumo.sumo_rl import SumoEnvironment
 
 
-try:
-    from src.params import DEVICE_OVERRIDE, USE_CUDA_IF_AVAILABLE
-except Exception:
-    DEVICE_OVERRIDE = None
-    USE_CUDA_IF_AVAILABLE = True
+def play(use_gui: bool | None = None, sleep_seconds: float = 0.15):
+    device = resolve_device()
 
-
-def resolve_device():
-    if DEVICE_OVERRIDE is not None:
-        return torch.device(DEVICE_OVERRIDE)
-    if USE_CUDA_IF_AVAILABLE and torch.cuda.is_available():
-        return torch.device("cuda")
-    return torch.device("cpu")
-
-
-def build_env(use_gui: bool | None = None):
     env_args = dict(ENV_CONFIG)
     env_args.setdefault("net_file", NET_FILE)
     env_args.setdefault("route_file", ROUTE_FILE)
     if use_gui is not None:
         env_args["use_gui"] = use_gui
-    return SumoEnvironment(**env_args)
+    env = SumoEnvironment(**env_args)
 
-
-def play(use_gui: bool | None = None, sleep_seconds: float = 0.15):
-    device = resolve_device()
-    env = build_env(use_gui=use_gui)
     log_file_path = build_eval_log_file()
     weights_file_path = resolve_eval_weights_file()
     os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
@@ -52,26 +36,34 @@ def play(use_gui: bool | None = None, sleep_seconds: float = 0.15):
 
     try:
         ts_ids = env.ts_ids
-        ts_to_idx = {ts: idx for idx, ts in enumerate(ts_ids)}
         obs_dims = {ts: env.observation_spaces(ts).shape[0] for ts in ts_ids}
         act_dims = {ts: env.action_spaces(ts).n for ts in ts_ids}
-        max_obs_dim = max(obs_dims.values())
-        max_act_dim = max(act_dims.values())
 
-        agent = SharedPPOAgent(max_obs_dim, max_act_dim, len(ts_ids)).to(device)
+        agents: dict[str, SharedPPOAgent] = {}
+        for ts in ts_ids:
+            agents[ts] = SharedPPOAgent(obs_dims[ts], act_dims[ts]).to(device)
 
         log(f"Plik wag: {weights_file_path}")
         log(f"Plik logu: {log_file_path}")
 
         if os.path.exists(weights_file_path):
-            checkpoint = torch.load(weights_file_path, map_location=device)
+            checkpoint = torch.load(weights_file_path, map_location=device, weights_only=False)
             state_dict = (
                 checkpoint.get("model_state_dict", checkpoint)
                 if isinstance(checkpoint, dict)
                 else checkpoint
             )
-            agent.load_state_dict(state_dict)
-            log(f"Wczytano współdzielony model z {weights_file_path}")
+            if isinstance(state_dict, dict) and all(ts in state_dict for ts in ts_ids):
+                for ts in ts_ids:
+                    agents[ts].load_state_dict(state_dict[ts])
+                log(f"Wczytano niezależne modele z {weights_file_path}")
+            else:
+                for ts in ts_ids:
+                    try:
+                        agents[ts].load_state_dict(state_dict)
+                    except Exception:
+                        pass
+                log(f"Wczytano model (broadcast) z {weights_file_path}")
         else:
             log(
                 f"UWAGA: nie znaleziono wag w {weights_file_path}. Agent startuje losowo."
@@ -95,13 +87,13 @@ def play(use_gui: bool | None = None, sleep_seconds: float = 0.15):
                     continue
 
                 obs_ts = torch.tensor(obs_dict[ts], dtype=torch.float32, device=device)
-                obs_ts = pad_observation(obs_ts, max_obs_dim)
-                ts_idx = torch.tensor(ts_to_idx[ts], dtype=torch.long, device=device)
+                obs_ts = pad_observation(obs_ts, obs_dims[ts])
                 valid_action_dim = act_dims[ts]
 
                 with torch.no_grad():
-                    logits, _ = agent._forward(obs_ts, ts_idx)
-                    logits = agent._mask_logits(logits, valid_action_dim)
+                    logits, _ = agents[ts]._forward(obs_ts)
+                    logits = agents[ts]._sanitize_logits(logits)
+                    logits = agents[ts]._mask_logits(logits, valid_action_dim)
                     if logits.dim() > 1:
                         logits = logits.squeeze(0)
                     action = int(torch.argmax(logits).item())
@@ -145,4 +137,4 @@ def play(use_gui: bool | None = None, sleep_seconds: float = 0.15):
 
 
 if __name__ == "__main__":
-    play(use_gui=bool(ENV_CONFIG.get("use_gui", False)))
+    play(use_gui=True)
