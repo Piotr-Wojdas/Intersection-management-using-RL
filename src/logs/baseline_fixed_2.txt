@@ -1,0 +1,11 @@
+Baseline: fixed | seeds=[42, 137, 271]
+Plik tras: C:\Users\rondo\Desktop\Sys auto projeekt\src\City_map_2\city2_hard.rou.xml
+seed=42: nagroda/agenta=-3009.735 | sr. czekanie=25.4s | dojechalo=1577 | teleporty=10 | backlog na koncu=284
+seed=137: nagroda/agenta=-2060.545 | sr. czekanie=21.6s | dojechalo=1724 | teleporty=8 | backlog na koncu=235
+seed=271: nagroda/agenta=-2285.230 | sr. czekanie=21.8s | dojechalo=1705 | teleporty=5 | backlog na koncu=254
+--- srednia po seedach ---
+reward_mean_per_agent: -2451.837
+mean_waiting_time: 22.945
+arrived: 1668.667
+teleported: 7.667
+backlogged_end: 257.667

@@ -1,3 +1,4 @@
+import argparse
 import os
 import time
 
@@ -5,7 +6,13 @@ import numpy as np
 import torch
 
 from src.agent_ppo import PPOAgent, _action_mask_tensor, build_env
-from src.params import build_eval_log_file, resolve_eval_weights_file
+from src.params import (
+    ROUTE_FILE_EASY,
+    ROUTE_FILE_HARD,
+    build_eval_log_file,
+    resolve_eval_weights_file,
+    resolve_weights_for_run,
+)
 from src.utils import env_reset, env_step, make_log_fn, obs_to_tensor, resolve_device
 
 
@@ -19,12 +26,21 @@ def _load_checkpoint(weights_file_path: str, device: torch.device, log):
         return torch.load(weights_file_path, map_location=device, weights_only=False)
 
 
-def play(use_gui: bool = True, sleep_seconds: float = 0.15):
+def play(
+    use_gui: bool = True,
+    sleep_seconds: float = 0.15,
+    weights_path: str | None = None,
+    route_file: str | None = None,
+):
     device = resolve_device()
-    env = build_env(use_gui=use_gui)
+    env = (
+        build_env(use_gui=use_gui, route_file=route_file)
+        if route_file is not None
+        else build_env(use_gui=use_gui)
+    )
 
     log_file_path = build_eval_log_file()
-    weights_file_path = resolve_eval_weights_file()
+    weights_file_path = weights_path or resolve_eval_weights_file()
     os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
     log_file = open(log_file_path, "w", encoding="utf-8")
     log = make_log_fn(log_file)
@@ -130,5 +146,48 @@ def play(use_gui: bool = True, sleep_seconds: float = 0.15):
         log_file.close()
 
 
+def _parse_args():
+    parser = argparse.ArgumentParser(
+        description="Ewaluacja wytrenowanego PPO na mapie city_map_2."
+    )
+    parser.add_argument(
+        "--weights",
+        default=None,
+        metavar="RUN_ID|PATH",
+        help="Numer treningu (np. 8) lub ścieżka do pliku wag. Numer rozwija się "
+        "do ppo_models_weights_<N>_best.pth (lub _<N>.pth). "
+        "Domyślnie: najnowszy *_best.pth.",
+    )
+    parser.add_argument(
+        "--scenario",
+        choices=["easy", "hard"],
+        default=None,
+        help="Wymuś ruch easy/hard niezależnie od USE_HARD_TRAFFIC. "
+        "Użyj 'easy' do oceny modeli uczonych na łatwym ruchu (np. run 8).",
+    )
+    parser.add_argument("--no-gui", action="store_true", help="Bez GUI SUMO.")
+    parser.add_argument(
+        "--sleep",
+        type=float,
+        default=0.15,
+        help="Pauza między krokami (s); 0 = bez pauzy (szybka ocena).",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    play(use_gui=True)
+    args = _parse_args()
+    route = None
+    if args.scenario == "easy":
+        route = ROUTE_FILE_EASY
+    elif args.scenario == "hard":
+        route = ROUTE_FILE_HARD
+    weights = args.weights
+    if weights is not None and weights.isdigit():
+        weights = resolve_weights_for_run(int(weights))
+    play(
+        use_gui=not args.no_gui,
+        sleep_seconds=args.sleep,
+        weights_path=weights,
+        route_file=route,
+    )

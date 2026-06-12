@@ -14,7 +14,7 @@ import os
 import numpy as np
 
 from src.agent_ppo import build_env
-from src.params import TRAIN_EVAL_SEED, build_baseline_log_file
+from src.params import ROUTE_FILE, TRAIN_EVAL_SEED, build_baseline_log_file
 from src.utils import env_reset, env_step, make_log_fn
 
 
@@ -84,6 +84,7 @@ def main():
     with open(log_file_path, "w", encoding="utf-8") as log_file:
         log = make_log_fn(log_file)
         log(f"Baseline: {args.mode} | seeds={args.seeds}")
+        log(f"Plik tras: {ROUTE_FILE}")
 
         results = []
         for seed in args.seeds:

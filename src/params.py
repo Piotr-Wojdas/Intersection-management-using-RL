@@ -25,8 +25,19 @@ OUTPUTS_DIR = os.path.join(BASE_DIR, "outputs")
 LOGS_DIR = os.path.join(BASE_DIR, "logs")
 CITY_MAP2_DIR = os.path.join(BASE_DIR, "City_map_2")
 NET_FILE = os.path.join(CITY_MAP2_DIR, "city2.net.xml")
-ROUTE_FILE = os.path.join(CITY_MAP2_DIR, "city2.rou.xml")
-TRIPS_FILE = os.path.join(CITY_MAP2_DIR, "city2.trips.xml")
+
+# Two demand scenarios sharing the same network. Flip USE_HARD_TRAFFIC to train
+# and evaluate on the harder near-saturation variant. Keep the PPO run and the
+# baselines on the SAME scenario so comparisons stay apples-to-apples.
+USE_HARD_TRAFFIC = True
+
+ROUTE_FILE_EASY = os.path.join(CITY_MAP2_DIR, "city2.rou.xml")
+TRIPS_FILE_EASY = os.path.join(CITY_MAP2_DIR, "city2.trips.xml")
+ROUTE_FILE_HARD = os.path.join(CITY_MAP2_DIR, "city2_hard.rou.xml")
+TRIPS_FILE_HARD = os.path.join(CITY_MAP2_DIR, "city2_hard.trips.xml")
+
+ROUTE_FILE = ROUTE_FILE_HARD if USE_HARD_TRAFFIC else ROUTE_FILE_EASY
+TRIPS_FILE = TRIPS_FILE_HARD if USE_HARD_TRAFFIC else TRIPS_FILE_EASY
 
 
 def _highest_numbered_suffix(directory: str, prefix: str, suffix: str) -> int:
@@ -140,6 +151,20 @@ def get_latest_resume_run_id() -> int | None:
     return highest if highest > 0 else None
 
 
+def resolve_weights_for_run(run_id: int) -> str:
+    """Checkpoint path for a run id: prefer *_best.pth, fall back to *.pth."""
+    best = os.path.join(OUTPUTS_DIR, f"ppo_models_weights_{run_id}_best.pth")
+    if os.path.exists(best):
+        return best
+    final = os.path.join(OUTPUTS_DIR, f"ppo_models_weights_{run_id}.pth")
+    if os.path.exists(final):
+        return final
+    raise FileNotFoundError(
+        f"Brak checkpointu dla treningu {run_id} w {OUTPUTS_DIR} "
+        "(szukano *_best.pth oraz *.pth)."
+    )
+
+
 # Shared PPO network architecture.
 PPO_HIDDEN_DIMS = [256, 128]
 
@@ -176,20 +201,23 @@ PPO_ENTROPY_FINAL_FRAC = 0.3
 PPO_VALUE_COEF = 0.5
 PPO_MAX_GRAD_NORM = 0.5
 
-# Rewards are multiplied by this factor before entering the PPO buffer.
-# congestion-aware rewards reach +-20 per step, so episode returns are O(100);
-# scaling keeps value-function targets in a range the critic can fit quickly.
-# Logged episode rewards stay unscaled.
-REWARD_SCALE = 0.1
+# Rewards are multiplied by this factor before entering the PPO buffer, to keep
+# value-function targets in a range the critic can fit quickly (logged episode
+# rewards stay unscaled). The policy gradient is unaffected — advantages are
+# standardized — so this only tames the critic-loss / grad-norm spikes.
+# The harder scenario has ~10x larger returns, so it needs a smaller scale;
+# the easy value reproduces run 8 exactly.
+REWARD_SCALE = 0.03 if USE_HARD_TRAFFIC else 0.1
 
 # Seed for torch/numpy/random in training (SUMO traffic stays "random").
 GLOBAL_SEED = 42
 
 # Evaluation during training.
 TRAIN_EVAL_EVERY_UPDATES = 5
-# List of seeds averaged for a stable eval signal. A single fixed seed can
-# give misleading results — one bad traffic realisation inflates the score.
-TRAIN_EVAL_SEED = [42, 137, 271]
+# Seeds averaged for a stable eval signal. At saturation the outcome is bimodal
+# (clears vs cascades into gridlock), so the harder scenario needs more seeds to
+# stop the "best model" selection from being luck; easy keeps run 8's three.
+TRAIN_EVAL_SEED = [42, 137, 271, 7, 99] if USE_HARD_TRAFFIC else [42, 137, 271]
 
 # How often (in updates) to persist a full resume checkpoint, so a hard crash
 # loses at most this many updates. Ctrl+C always saves immediately as well.
@@ -249,7 +277,7 @@ ENV_CONFIG = {
 # Number of outer PPO update loops.
 NUM_UPDATES = 300
 
-# --- Traffic generation defaults (used by src/City_map/generate_traffic.py) ---
+# --- Traffic generation defaults (used by src.City_map_2.generate_traffic) ---
 # Number of vehicles to generate when creating trips/routes.
 # Matches the demand in the committed city2.rou.xml (1200 vehicles).
 TRAFFIC_NUM_VEHICLES = 1200
@@ -260,6 +288,13 @@ TRAFFIC_MAX_TIME = 3000
 TRAFFIC_HOTSPOT_DESTINATIONS = ("E6", "E10", "E13")
 # Fraction of vehicles directed to hotspot destinations (0..1)
 TRAFFIC_HOTSPOT_RATIO = 0.6
+
+# Harder scenario (generate with: python -m src.City_map_2.generate_traffic --hard).
+# More vehicles + a mid-episode demand peak (profile="peak") + stronger
+# directional bias create the cross-blocking where coordination beats a myopic
+# controller. Tune TRAFFIC_NUM_VEHICLES_HARD if the network gridlocks/stays easy.
+TRAFFIC_NUM_VEHICLES_HARD = 2000
+TRAFFIC_HOTSPOT_RATIO_HARD = 0.75
 
 # --- Standing-vehicle penalty ---
 # If a vehicle's waiting time (seconds) exceeds this threshold, it counts as "long-standing".

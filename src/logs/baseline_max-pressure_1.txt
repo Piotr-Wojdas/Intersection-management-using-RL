@@ -1,0 +1,10 @@
+Baseline: max-pressure | seeds=[42, 137, 271]
+seed=42: nagroda/agenta=-30.018 | sr. czekanie=0.6s | dojechalo=1200 | teleporty=0 | backlog na koncu=0
+seed=137: nagroda/agenta=-27.733 | sr. czekanie=0.5s | dojechalo=1200 | teleporty=0 | backlog na koncu=0
+seed=271: nagroda/agenta=-31.501 | sr. czekanie=0.6s | dojechalo=1200 | teleporty=0 | backlog na koncu=0
+--- srednia po seedach ---
+reward_mean_per_agent: -29.751
+mean_waiting_time: 0.573
+arrived: 1200.000
+teleported: 0.000
+backlogged_end: 0.000

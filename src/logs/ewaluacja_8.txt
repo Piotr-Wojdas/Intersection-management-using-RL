@@ -1,0 +1,22 @@
+Weights file: C:\Users\rondo\Desktop\Sys auto projeekt\src\outputs\ppo_models_weights_8_best.pth
+Log file: C:\Users\rondo\Desktop\Sys auto projeekt\src\logs\ewaluacja_8.txt
+Loaded per-agent models from C:\Users\rondo\Desktop\Sys auto projeekt\src\outputs\ppo_models_weights_8_best.pth
+Starting evaluation on city_map_2...
+[eval] step=100 running=21 backlogged=0 teleported=0 mean_wait=0.19047619047619047
+[eval] step=200 running=32 backlogged=0 teleported=0 mean_wait=0.625
+[eval] step=300 running=34 backlogged=0 teleported=0 mean_wait=1.2941176470588236
+[eval] step=400 running=28 backlogged=1 teleported=0 mean_wait=1.0
+[eval] step=500 running=31 backlogged=0 teleported=0 mean_wait=0.22580645161290322
+[eval] step=600 running=29 backlogged=0 teleported=0 mean_wait=0.1724137931034483
+[eval] step=700 running=0 backlogged=0 teleported=0 mean_wait=0.0
+[eval] step=800 running=0 backlogged=0 teleported=0 mean_wait=0.0
+Evaluation complete.
+Steps taken: 800
+Agent J0 - total reward: -8.536
+Agent J1 - total reward: -52.832
+Agent J10 - total reward: -18.693
+Agent J2 - total reward: -20.582
+Agent J4 - total reward: -18.303
+Agent J7 - total reward: -46.002
+Srednie czekanie (system): 0.7s
+Dojechalo: 1200 | teleporty: 0 | backlog na koncu: 0

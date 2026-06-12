@@ -360,6 +360,7 @@ def train(resume_run_id: int | None = None):
         log(f"Plik najlepszego modelu: {best_weights_file_path}")
         log(f"Plik punktu wznowienia: {resume_file_path}")
         log(f"Plik logu: {log_file_path}")
+        log(f"Plik tras: {ROUTE_FILE}")
         log(f"Używam urządzenia: {device} | seed={GLOBAL_SEED}")
 
         env = build_env(use_gui=False)
