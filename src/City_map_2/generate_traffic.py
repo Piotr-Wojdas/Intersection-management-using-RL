@@ -16,6 +16,7 @@ import os
 import random
 import subprocess
 import sys
+import tempfile
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -34,6 +35,8 @@ from src.params import (
     TRAFFIC_NUM_VEHICLES_HARD,
     TRIPS_FILE_EASY,
     TRIPS_FILE_HARD,
+    eval_route_file,
+    traffic_pool_files,
 )
 
 
@@ -122,6 +125,33 @@ def generate_traffic(
     )
 
 
+def _generate_pool(hard, num_vehicles, max_time, hotspot_ratio, profile):
+    """Generate the training pool + a held-out eval file (domain randomization).
+
+    Each file uses a distinct seed → a different demand realisation. Trips go to
+    a temp file and duarouter's .alt.xml is removed, so only the .rou.xml files
+    land in City_map_2.
+    """
+    pool = traffic_pool_files(hard)
+    eval_file = eval_route_file(hard)
+    targets = [(route, 1000 + i) for i, route in enumerate(pool)] + [(eval_file, 9999)]
+    print(
+        f"Generuję pulę {len(pool)} plików treningowych + 1 held-out "
+        f"(hard={hard}, pojazdów={num_vehicles}, profil={profile})..."
+    )
+    for route_file, seed in targets:
+        base = os.path.basename(route_file)[: -len(".rou.xml")]
+        trips_file = os.path.join(tempfile.gettempdir(), f"{base}.trips.xml")
+        generate_traffic(
+            NET_FILE, trips_file, route_file, num_vehicles, max_time,
+            hotspot_ratio, profile, seed,
+        )
+        for junk in (trips_file, route_file[: -len(".rou.xml")] + ".rou.alt.xml"):
+            if os.path.exists(junk):
+                os.remove(junk)
+    print(f"Pula gotowa w {os.path.dirname(eval_file)} (held-out: {os.path.basename(eval_file)}).")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -129,6 +159,12 @@ def main():
         action="store_true",
         help="Generuj trudniejszy scenariusz (więcej pojazdów, szczyt popytu, "
         "silniejsze hotspoty) do plików *_hard.",
+    )
+    parser.add_argument(
+        "--pool",
+        action="store_true",
+        help="Generuj pulę treningową + held-out eval (domain randomization) "
+        "zamiast pojedynczego pliku.",
     )
     parser.add_argument("--num-vehicles", type=int, default=None)
     parser.add_argument("--max-time", type=int, default=TRAFFIC_MAX_TIME)
@@ -159,6 +195,10 @@ def main():
         profile = args.profile or "uniform"
         trips_file = args.trips_file or TRIPS_FILE_EASY
         route_file = args.route_file or ROUTE_FILE_EASY
+
+    if args.pool:
+        _generate_pool(args.hard, num_vehicles, args.max_time, hotspot_ratio, profile)
+        return
 
     generate_traffic(
         net_file=NET_FILE,

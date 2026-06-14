@@ -1,0 +1,14 @@
+Baseline: max-pressure
+Seedy: [42, 137, 271, 7, 99]
+Pliki tras: ['city2_hard_eval.rou.xml']
+  city2_hard_eval.rou.xml seed=42: dojechalo=1872 | sr. czekanie=15.3s | backlog=30 | teleporty=21
+  city2_hard_eval.rou.xml seed=137: dojechalo=1964 | sr. czekanie=8.9s | backlog=13 | teleporty=10
+  city2_hard_eval.rou.xml seed=271: dojechalo=1958 | sr. czekanie=9.0s | backlog=0 | teleporty=13
+  city2_hard_eval.rou.xml seed=7: dojechalo=1760 | sr. czekanie=22.0s | backlog=54 | teleporty=19
+  city2_hard_eval.rou.xml seed=99: dojechalo=1825 | sr. czekanie=18.6s | backlog=57 | teleporty=27
+
+=== Srednia ± odchylenie — max-pressure (5 przejazdow) ===
+arrived: 1875.8 ± 78.2 (min 1760.0, max 1964.0)
+mean_waiting_time: 14.7 ± 5.2 (min 8.9, max 22.0)
+backlogged_end: 30.8 ± 22.3 (min 0.0, max 57.0)
+teleported: 18.0 ± 6.0 (min 10.0, max 27.0)

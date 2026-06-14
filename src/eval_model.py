@@ -7,11 +7,12 @@ import torch
 
 from src.agent_ppo import PPOAgent, _action_mask_tensor, build_env
 from src.params import (
-    ROUTE_FILE_EASY,
-    ROUTE_FILE_HARD,
+    apply_scenario,
     build_eval_log_file,
+    resolve_eval_route_file,
     resolve_eval_weights_file,
     resolve_weights_for_run,
+    scenario_is_hard,
 )
 from src.utils import env_reset, env_step, make_log_fn, obs_to_tensor, resolve_device
 
@@ -27,17 +28,17 @@ def _load_checkpoint(weights_file_path: str, device: torch.device, log):
 
 
 def play(
-    use_gui: bool = True,
+    use_gui: bool = False,
     sleep_seconds: float = 0.15,
     weights_path: str | None = None,
     route_file: str | None = None,
 ):
     device = resolve_device()
-    env = (
-        build_env(use_gui=use_gui, route_file=route_file)
-        if route_file is not None
-        else build_env(use_gui=use_gui)
-    )
+    # No explicit route → use the route the model is evaluated on for the active
+    # scenario (held-out file under domain randomization).
+    if route_file is None:
+        route_file = resolve_eval_route_file()
+    env = build_env(use_gui=use_gui, route_file=route_file)
 
     log_file_path = build_eval_log_file()
     weights_file_path = weights_path or resolve_eval_weights_file()
@@ -56,6 +57,7 @@ def play(
 
         log(f"Weights file: {weights_file_path}")
         log(f"Log file: {log_file_path}")
+        log(f"Plik tras: {route_file}")
 
         if os.path.exists(weights_file_path):
             checkpoint = _load_checkpoint(weights_file_path, device, log)
@@ -162,10 +164,16 @@ def _parse_args():
         "--scenario",
         choices=["easy", "hard"],
         default=None,
-        help="Wymuś ruch easy/hard niezależnie od USE_HARD_TRAFFIC. "
+        help="Trudność ruchu. Domyślnie bierze USE_HARD_TRAFFIC z params.py. "
         "Użyj 'easy' do oceny modeli uczonych na łatwym ruchu (np. run 8).",
     )
-    parser.add_argument("--no-gui", action="store_true", help="Bez GUI SUMO.")
+    parser.add_argument(
+        "--show",
+        type=int,
+        choices=[0, 1],
+        default=0,
+        help="1 = wizualizacja w SUMO GUI; 0 (domyślnie) = headless.",
+    )
     parser.add_argument(
         "--sleep",
         type=float,
@@ -177,17 +185,12 @@ def _parse_args():
 
 if __name__ == "__main__":
     args = _parse_args()
-    route = None
-    if args.scenario == "easy":
-        route = ROUTE_FILE_EASY
-    elif args.scenario == "hard":
-        route = ROUTE_FILE_HARD
+    apply_scenario(scenario_is_hard(args.scenario))
     weights = args.weights
     if weights is not None and weights.isdigit():
         weights = resolve_weights_for_run(int(weights))
     play(
-        use_gui=not args.no_gui,
+        use_gui=bool(args.show),
         sleep_seconds=args.sleep,
         weights_path=weights,
-        route_file=route,
     )

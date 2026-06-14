@@ -1,8 +1,0 @@
-Plik wag: C:\Users\RODO\Desktop\Sys auto - Projekt\src\outputs\ppo_models_weights_7_best.pth
-Plik logu: C:\Users\RODO\Desktop\Sys auto - Projekt\src\logs\ewaluacja_5.txt
-Wczytano niezależne modele z C:\Users\RODO\Desktop\Sys auto - Projekt\src\outputs\ppo_models_weights_7_best.pth
-Start oceny na mapie city_map_2...
-[eval] step=100 running=29 backlogged=0 teleported=0 mean_wait=1.1724137931034482
-[eval] step=200 running=57 backlogged=0 teleported=0 mean_wait=7.368421052631579
-[eval] step=300 running=77 backlogged=3 teleported=1 mean_wait=3.7532467532467533
-[eval] step=400 running=68 backlogged=4 teleported=4 mean_wait=9.676470588235293

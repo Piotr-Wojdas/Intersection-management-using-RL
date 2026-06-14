@@ -7,11 +7,8 @@ import os
 import re
 
 # --- Device selection ---
-# If True, the trainer will use CUDA when PyTorch can see a GPU.
-# If False, training stays on CPU even if a GPU is available.
-USE_CUDA_IF_AVAILABLE = True
+USE_CUDA_IF_AVAILABLE = False
 
-# Optional manual override. Set to "cpu", "cuda", or "cuda:0" if you want to
 # force a specific device. Leave as None to use automatic selection.
 DEVICE_OVERRIDE = None
 
@@ -38,6 +35,90 @@ TRIPS_FILE_HARD = os.path.join(CITY_MAP2_DIR, "city2_hard.trips.xml")
 
 ROUTE_FILE = ROUTE_FILE_HARD if USE_HARD_TRAFFIC else ROUTE_FILE_EASY
 TRIPS_FILE = TRIPS_FILE_HARD if USE_HARD_TRAFFIC else TRIPS_FILE_EASY
+
+# --- Domain randomization ---
+# A single static route file replays the same arrival sequence every episode
+# (the SUMO seed only jitters micro-dynamics), so a time-aware policy can overfit
+# to that one realisation. When RANDOMIZE_TRAFFIC is True, training rotates over
+# a POOL of route files (different demand realisations) and evaluation uses a
+# HELD-OUT file never seen in training — so the score measures generalisation.
+# Generate the files with:
+#   python -m src.City_map_2.generate_traffic --pool [--hard]
+RANDOMIZE_TRAFFIC = True
+# Number of distinct training route files in the pool.
+TRAFFIC_POOL_SIZE = 8
+
+
+def _scenario_base(hard: bool) -> str:
+    return "city2_hard" if hard else "city2"
+
+
+def traffic_pool_files(hard: bool) -> list[str]:
+    """Training route-file pool for a scenario (domain randomization)."""
+    base = _scenario_base(hard)
+    return [
+        os.path.join(CITY_MAP2_DIR, f"{base}_train_{i}.rou.xml")
+        for i in range(TRAFFIC_POOL_SIZE)
+    ]
+
+
+def eval_route_file(hard: bool) -> str:
+    """Held-out evaluation route file for a scenario (never used in training)."""
+    return os.path.join(CITY_MAP2_DIR, f"{_scenario_base(hard)}_eval.rou.xml")
+
+
+# Active-scenario pool + held-out file (derived from USE_HARD_TRAFFIC).
+TRAFFIC_POOL_FILES = traffic_pool_files(USE_HARD_TRAFFIC)
+EVAL_ROUTE_FILE = eval_route_file(USE_HARD_TRAFFIC)
+
+
+def resolve_eval_route_file() -> str:
+    """Route file for evaluation: the held-out file when domain randomization is
+    on (and present), else the active single route file. Keeps the model eval and
+    the baselines on the same demand for a fair comparison."""
+    if RANDOMIZE_TRAFFIC and os.path.exists(EVAL_ROUTE_FILE):
+        return EVAL_ROUTE_FILE
+    return ROUTE_FILE
+
+
+def reward_scale_for(hard: bool) -> float:
+    """Reward multiplier per scenario (hard has ~10x larger returns)."""
+    return 0.03 if hard else 0.1
+
+
+def eval_seeds_for(hard: bool) -> list[int]:
+    """Eval seeds per scenario (more for the bimodal, saturated hard case)."""
+    return [42, 137, 271, 7, 99] if hard else [42, 137, 271]
+
+
+def scenario_is_hard(scenario: str | None) -> bool:
+    """Resolve a --scenario value ('easy'/'hard'/None) to a bool.
+
+    None keeps the current USE_HARD_TRAFFIC default, so scripts behave as before
+    when no flag is passed.
+    """
+    if scenario is None:
+        return USE_HARD_TRAFFIC
+    return scenario == "hard"
+
+
+def apply_scenario(hard: bool) -> None:
+    """Reconfigure every scenario-dependent module global for the chosen
+    difficulty. Call once at startup (from a --scenario flag) before training or
+    evaluation reads these values.
+
+    NOTE: consumers must read these as ``params.X`` (qualified), not via a frozen
+    ``from src.params import X``, for the switch to take effect.
+    """
+    global USE_HARD_TRAFFIC, ROUTE_FILE, TRIPS_FILE, REWARD_SCALE
+    global TRAIN_EVAL_SEED, TRAFFIC_POOL_FILES, EVAL_ROUTE_FILE
+    USE_HARD_TRAFFIC = hard
+    ROUTE_FILE = ROUTE_FILE_HARD if hard else ROUTE_FILE_EASY
+    TRIPS_FILE = TRIPS_FILE_HARD if hard else TRIPS_FILE_EASY
+    REWARD_SCALE = reward_scale_for(hard)
+    TRAIN_EVAL_SEED = eval_seeds_for(hard)
+    TRAFFIC_POOL_FILES = traffic_pool_files(hard)
+    EVAL_ROUTE_FILE = eval_route_file(hard)
 
 
 def _highest_numbered_suffix(directory: str, prefix: str, suffix: str) -> int:
@@ -168,6 +249,11 @@ def resolve_weights_for_run(run_id: int) -> str:
 # Shared PPO network architecture.
 PPO_HIDDEN_DIMS = [256, 128]
 
+# Centralized critic (MAPPO, src/agent_mappo.py) architecture. Its input is the
+# concatenation of every agent's observation, so the trunk is wider than the
+# per-agent actor.
+CENTRAL_CRITIC_HIDDEN_DIMS = [256, 256]
+
 # --- PPO hyperparameters ---
 # Learning rate used by Adam for both actor and critic.
 LEARNING_RATE = 2.5e-4
@@ -207,7 +293,7 @@ PPO_MAX_GRAD_NORM = 0.5
 # standardized — so this only tames the critic-loss / grad-norm spikes.
 # The harder scenario has ~10x larger returns, so it needs a smaller scale;
 # the easy value reproduces run 8 exactly.
-REWARD_SCALE = 0.03 if USE_HARD_TRAFFIC else 0.1
+REWARD_SCALE = reward_scale_for(USE_HARD_TRAFFIC)
 
 # Seed for torch/numpy/random in training (SUMO traffic stays "random").
 GLOBAL_SEED = 42
@@ -217,7 +303,7 @@ TRAIN_EVAL_EVERY_UPDATES = 5
 # Seeds averaged for a stable eval signal. At saturation the outcome is bimodal
 # (clears vs cascades into gridlock), so the harder scenario needs more seeds to
 # stop the "best model" selection from being luck; easy keeps run 8's three.
-TRAIN_EVAL_SEED = [42, 137, 271, 7, 99] if USE_HARD_TRAFFIC else [42, 137, 271]
+TRAIN_EVAL_SEED = eval_seeds_for(USE_HARD_TRAFFIC)
 
 # How often (in updates) to persist a full resume checkpoint, so a hard crash
 # loses at most this many updates. Ctrl+C always saves immediately as well.
@@ -310,6 +396,15 @@ PENDING_VEHICLE_PENALTY_WEIGHT = 0.1
 
 # Penalize the total queue inside the controlled network.
 QUEUE_PENALTY_WEIGHT = 0.05
+
+# MAPPO only: weight of the GLOBAL backlog penalty added to the team reward
+# (per step: -weight * number_of_pending_vehicles). Backlogged vehicles are
+# invisible to the per-agent congestion reward, so without this the policy can
+# inflate its reward by throttling entry and stranding cars at the gate. Only
+# meaningful with a shared/team objective. Main tuning knob for the MAPPO run:
+# raise it if the policy leaves backlog, lower it if it over-reacts to the
+# unavoidable demand peak.
+MAPPO_BACKLOG_PENALTY_WEIGHT = 0.005
 
 # Cap (seconds) used to normalise per-lane accumulated waiting time in the
 # observation. Typical lane waits are tens of seconds; a small cap keeps the

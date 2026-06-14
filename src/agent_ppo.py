@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.distributions.categorical import Categorical
 
+import src.params as P  # scenario-dependent values read via P.X (see apply_scenario)
 import src.setup_sumo  # noqa: F401  (sets SUMO_HOME before any TraCI/sumolib use)
 from src.Sumo.sumo_rl import SumoEnvironment
 from src.params import (
@@ -27,14 +28,14 @@ from src.params import (
     PPO_MINIBATCH_SIZE,
     PPO_VALUE_COEF,
     RESUME_SAVE_EVERY_UPDATES,
-    REWARD_SCALE,
-    ROUTE_FILE,
     ROLLOUT_STEPS,
     TRAIN_EVAL_EVERY_UPDATES,
-    TRAIN_EVAL_SEED,
+    apply_scenario,
     build_resume_file,
     build_training_artifacts,
     get_latest_resume_run_id,
+    resolve_eval_route_file,
+    scenario_is_hard,
 )
 from src.utils import env_reset, env_step, make_log_fn, obs_to_tensor, resolve_device
 
@@ -142,7 +143,7 @@ class PPOAgent(nn.Module):
 def build_env(use_gui: bool = False, sumo_seed=None, **overrides):
     env_args = dict(ENV_CONFIG)
     env_args.setdefault("net_file", NET_FILE)
-    env_args.setdefault("route_file", ROUTE_FILE)
+    env_args.setdefault("route_file", P.ROUTE_FILE)
     env_args["use_gui"] = use_gui
     if sumo_seed is not None:
         env_args["sumo_seed"] = sumo_seed
@@ -152,6 +153,31 @@ def build_env(use_gui: bool = False, sumo_seed=None, **overrides):
 
 def _action_mask_tensor(env, ts: str, device: torch.device) -> torch.Tensor:
     return torch.as_tensor(env.action_masks(ts), dtype=torch.bool, device=device)
+
+
+def check_traffic_pool() -> None:
+    """Fail loudly if domain randomization is on but the route files are missing."""
+    if not P.RANDOMIZE_TRAFFIC:
+        return
+    missing = [f for f in [*P.TRAFFIC_POOL_FILES, P.EVAL_ROUTE_FILE] if not os.path.exists(f)]
+    if missing:
+        raise FileNotFoundError(
+            "RANDOMIZE_TRAFFIC=True, ale brakuje plików puli tras:\n  "
+            + "\n  ".join(missing)
+            + "\nWygeneruj je: python -m src.City_map_2.generate_traffic --pool "
+            "[--hard]  (lub ustaw RANDOMIZE_TRAFFIC=False w params.py)."
+        )
+
+
+def train_reset(env):
+    """Reset the env, rotating to a random pool route file when randomizing.
+
+    Setting env._route before reset() makes the next episode use a different
+    demand realisation, so the policy cannot memorise one arrival sequence.
+    """
+    if P.RANDOMIZE_TRAFFIC and P.TRAFFIC_POOL_FILES:
+        env._route = random.choice(P.TRAFFIC_POOL_FILES)
+    return env_reset(env)
 
 
 def _set_optimizer_lr(optimizer: optim.Optimizer, lr: float) -> None:
@@ -188,7 +214,7 @@ def _build_checkpoint(
         "act_dims": act_dims,
         "ts_ids": ts_ids,
         "map_net_file": NET_FILE,
-        "map_route_file": ROUTE_FILE,
+        "map_route_file": P.ROUTE_FILE,
         "best_eval_score": best_eval_score,
     }
     if update is not None:
@@ -207,7 +233,7 @@ def _build_resume_state(
         "act_dims": act_dims,
         "ts_ids": ts_ids,
         "map_net_file": NET_FILE,
-        "map_route_file": ROUTE_FILE,
+        "map_route_file": P.ROUTE_FILE,
         "best_eval_score": best_eval_score,
         "update": update,
         "rng_python": random.getstate(),
@@ -244,7 +270,7 @@ def _run_single_eval(
     seed: int,
 ) -> tuple[float, dict]:
     """Run one greedy episode; return (mean per-agent reward sum, system metrics)."""
-    eval_env = build_env(use_gui=False, sumo_seed=seed)
+    eval_env = build_env(use_gui=False, sumo_seed=seed, route_file=resolve_eval_route_file())
     try:
         obs_dict = env_reset(eval_env)
         reward_sum = {ts: 0.0 for ts in ts_ids}
@@ -360,9 +386,16 @@ def train(resume_run_id: int | None = None):
         log(f"Plik najlepszego modelu: {best_weights_file_path}")
         log(f"Plik punktu wznowienia: {resume_file_path}")
         log(f"Plik logu: {log_file_path}")
-        log(f"Plik tras: {ROUTE_FILE}")
+        if P.RANDOMIZE_TRAFFIC:
+            log(
+                f"Domain randomization: pula {len(P.TRAFFIC_POOL_FILES)} plików treningowych, "
+                f"held-out eval = {os.path.basename(P.EVAL_ROUTE_FILE)}"
+            )
+        else:
+            log(f"Plik tras: {P.ROUTE_FILE}")
         log(f"Używam urządzenia: {device} | seed={GLOBAL_SEED}")
 
+        check_traffic_pool()
         env = build_env(use_gui=False)
         ts_ids = env.ts_ids
 
@@ -408,7 +441,7 @@ def train(resume_run_id: int | None = None):
 
         ready = True
         last_completed_update = start_update - 1
-        obs_dict = env_reset(env)
+        obs_dict = train_reset(env)
 
         for update in range(start_update, NUM_UPDATES + 1):
             progress = _schedule_progress(update, NUM_UPDATES)
@@ -482,7 +515,7 @@ def train(resume_run_id: int | None = None):
                         reward_value = 0.0
                     epoch_reward_sum[ts] += reward_value
 
-                    scaled_reward = reward_value * REWARD_SCALE
+                    scaled_reward = reward_value * P.REWARD_SCALE
                     if episode_ended:
                         # The episode ends by time limit (truncation), not a
                         # terminal state — fold the bootstrap value of the final
@@ -504,7 +537,7 @@ def train(resume_run_id: int | None = None):
 
                 obs_dict = next_obs_dict
                 if episode_ended:
-                    obs_dict = env_reset(env)
+                    obs_dict = train_reset(env)
 
             diag = {
                 "ev": [],
@@ -677,7 +710,7 @@ def train(resume_run_id: int | None = None):
                     device,
                     ts_ids,
                     obs_dims,
-                    TRAIN_EVAL_SEED,
+                    P.TRAIN_EVAL_SEED,
                 )
                 log(
                     f"Ocena greedy: {eval_score:.3f} | "
@@ -758,11 +791,18 @@ def _parse_args():
         help="Wznów przerwany trening. Bez wartości wznawia najnowszy zapisany "
         "run; podaj numer (np. --resume 8), aby wskazać konkretny.",
     )
+    parser.add_argument(
+        "--scenario",
+        choices=["easy", "hard"],
+        default=None,
+        help="Trudność ruchu. Domyślnie bierze USE_HARD_TRAFFIC z params.py.",
+    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = _parse_args()
+    apply_scenario(scenario_is_hard(args.scenario))
     resume_run_id = None
     if args.resume is not None:
         if args.resume == "auto":

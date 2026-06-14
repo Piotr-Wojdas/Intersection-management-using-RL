@@ -1,0 +1,14 @@
+Ewaluacja best | wagi: ppo_models_weights_1_best.pth
+Seedy: [42, 137, 271]
+Pliki tras: ['city2.rou.xml']
+
+[model]
+  city2.rou.xml seed=42: dojechalo=1200 | sr. czekanie=3.0s | backlog=0 | teleporty=2
+  city2.rou.xml seed=137: dojechalo=1200 | sr. czekanie=3.2s | backlog=0 | teleporty=2
+  city2.rou.xml seed=271: dojechalo=1200 | sr. czekanie=3.0s | backlog=0 | teleporty=2
+
+=== Srednia ± odchylenie — model (3 przejazdow) ===
+arrived: 1200.0 ± 0.0 (min 1200.0, max 1200.0)
+mean_waiting_time: 3.1 ± 0.1 (min 3.0, max 3.2)
+backlogged_end: 0.0 ± 0.0 (min 0.0, max 0.0)
+teleported: 2.0 ± 0.0 (min 2.0, max 2.0)

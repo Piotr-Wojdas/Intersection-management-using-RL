@@ -1,0 +1,12 @@
+Baseline: max-pressure
+Seedy: [42, 137, 271]
+Pliki tras: ['city2.rou.xml']
+  city2.rou.xml seed=42: dojechalo=1200 | sr. czekanie=0.6s | backlog=0 | teleporty=0
+  city2.rou.xml seed=137: dojechalo=1200 | sr. czekanie=0.5s | backlog=0 | teleporty=0
+  city2.rou.xml seed=271: dojechalo=1200 | sr. czekanie=0.6s | backlog=0 | teleporty=0
+
+=== Srednia ± odchylenie — max-pressure (3 przejazdow) ===
+arrived: 1200.0 ± 0.0 (min 1200.0, max 1200.0)
+mean_waiting_time: 0.6 ± 0.0 (min 0.5, max 0.6)
+backlogged_end: 0.0 ± 0.0 (min 0.0, max 0.0)
+teleported: 0.0 ± 0.0 (min 0.0, max 0.0)

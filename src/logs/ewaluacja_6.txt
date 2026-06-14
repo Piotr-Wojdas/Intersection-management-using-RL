@@ -1,2 +1,0 @@
-Weights file: C:\Users\rondo\Desktop\Sys auto projeekt\src\outputs\ppo_models_weights_7_best.pth
-Log file: C:\Users\rondo\Desktop\Sys auto projeekt\src\logs\ewaluacja_6.txt
