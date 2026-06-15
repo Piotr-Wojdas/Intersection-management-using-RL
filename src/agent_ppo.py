@@ -30,6 +30,7 @@ from src.params import (
     RESUME_SAVE_EVERY_UPDATES,
     ROLLOUT_STEPS,
     TRAIN_EVAL_EVERY_UPDATES,
+    USE_TORCH_COMPILE,
     apply_scenario,
     build_resume_file,
     build_training_artifacts,
@@ -200,6 +201,13 @@ def _scheduled_entropy_coef(progress: float) -> float:
     return PPO_ENTROPY_COEF * (final_frac + (1.0 - final_frac) * (1.0 - progress))
 
 
+def _clean_state_dict(sd: dict) -> dict:
+    """Strip the '_orig_mod.' prefix that torch.compile adds to state dict keys."""
+    if any(k.startswith("_orig_mod.") for k in sd):
+        return {k.removeprefix("_orig_mod."): v for k, v in sd.items()}
+    return sd
+
+
 def _build_checkpoint(
     agents: dict,
     ts_ids: list[str],
@@ -209,7 +217,7 @@ def _build_checkpoint(
     update: int | None = None,
 ) -> dict:
     ckpt = {
-        "model_state_dict": {ts: agents[ts].state_dict() for ts in ts_ids},
+        "model_state_dict": {ts: _clean_state_dict(agents[ts].state_dict()) for ts in ts_ids},
         "obs_dims": obs_dims,
         "act_dims": act_dims,
         "ts_ids": ts_ids,
@@ -227,7 +235,7 @@ def _build_resume_state(
 ) -> dict:
     """Full training state needed to resume: weights, Adam momentum, RNG, progress."""
     return {
-        "model_state_dict": {ts: agents[ts].state_dict() for ts in ts_ids},
+        "model_state_dict": {ts: _clean_state_dict(agents[ts].state_dict()) for ts in ts_ids},
         "optimizer_state_dict": {ts: optimizers[ts].state_dict() for ts in ts_ids},
         "obs_dims": obs_dims,
         "act_dims": act_dims,
@@ -424,7 +432,9 @@ def train(resume_run_id: int | None = None):
                     "(zmieniła się mapa lub funkcja obserwacji) — nie można wznowić."
                 )
             for ts in ts_ids:
-                agents[ts].load_state_dict(resume_state["model_state_dict"][ts])
+                agents[ts].load_state_dict(
+                    _clean_state_dict(resume_state["model_state_dict"][ts])
+                )
                 optimizers[ts].load_state_dict(resume_state["optimizer_state_dict"][ts])
             best_eval_score = float(resume_state.get("best_eval_score", -float("inf")))
             start_update = int(resume_state["update"]) + 1
@@ -438,6 +448,14 @@ def train(resume_run_id: int | None = None):
                 f"Wznowiono run {run_id} od epoki {start_update} "
                 f"(ukończono {start_update - 1}/{NUM_UPDATES}, best={best_eval_score:.3f})."
             )
+
+        if USE_TORCH_COMPILE:
+            try:
+                for ts in ts_ids:
+                    agents[ts] = torch.compile(agents[ts], backend="aot_eager")
+                log(f"Skompilowano {len(ts_ids)} sieci przez torch.compile (aot_eager).")
+            except Exception as exc:
+                log(f"Ostrzeżenie: torch.compile niedostępny ({exc}), pomijam kompilację.")
 
         ready = True
         last_completed_update = start_update - 1
@@ -705,6 +723,10 @@ def train(resume_run_id: int | None = None):
             )
 
             if update % TRAIN_EVAL_EVERY_UPDATES == 0:
+                # libsumo is a singleton — close training sim before eval creates its
+                # own env (which also calls traci.start in __init__), then restart.
+                if P.USE_LIBSUMO:
+                    env.close()
                 eval_score, eval_metrics = evaluate_agent(
                     agents,
                     device,
@@ -712,6 +734,8 @@ def train(resume_run_id: int | None = None):
                     obs_dims,
                     P.TRAIN_EVAL_SEED,
                 )
+                if P.USE_LIBSUMO:
+                    obs_dict = train_reset(env)
                 log(
                     f"Ocena greedy: {eval_score:.3f} | "
                     f"sr. czekanie={eval_metrics['mean_waiting_time']:.1f}s | "

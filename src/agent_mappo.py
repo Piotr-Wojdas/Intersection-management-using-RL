@@ -521,9 +521,13 @@ def train(resume_run_id: int | None = None):
             )
 
             if update % TRAIN_EVAL_EVERY_UPDATES == 0:
+                if P.USE_LIBSUMO:
+                    env.close()
                 eval_score, eval_metrics = _evaluate_mappo(
                     actors, device, ts_ids, obs_dims, P.TRAIN_EVAL_SEED
                 )
+                if P.USE_LIBSUMO:
+                    obs_dict = train_reset(env)
                 log(
                     f"Ocena greedy: {eval_score:.3f} | "
                     f"sr. czekanie={eval_metrics['mean_waiting_time']:.1f}s | "

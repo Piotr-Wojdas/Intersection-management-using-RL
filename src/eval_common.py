@@ -69,7 +69,11 @@ def load_agents(weights_path, ts_ids, obs_dims, act_dims, device):
     if not (isinstance(state, dict) and all(ts in state for ts in ts_ids)):
         raise ValueError(f"Checkpoint {weights_path} nie pasuje do agentów {ts_ids}.")
     for ts in ts_ids:
-        agents[ts].load_state_dict(state[ts])
+        ts_state = state[ts]
+        # torch.compile wraps keys with "_orig_mod." — strip it for plain loading
+        if any(k.startswith("_orig_mod.") for k in ts_state):
+            ts_state = {k.removeprefix("_orig_mod."): v for k, v in ts_state.items()}
+        agents[ts].load_state_dict(ts_state)
     return agents
 
 

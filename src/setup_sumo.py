@@ -13,6 +13,15 @@ try:
 except Exception:
     PARAM_SUMO_HOME = None
 
+try:
+    from src.params import USE_LIBSUMO as _USE_LIBSUMO
+except Exception:
+    _USE_LIBSUMO = False
+
+# Must be set before traci/sumolib is imported (env.py reads this at module load).
+if _USE_LIBSUMO:
+    os.environ["LIBSUMO_AS_TRACI"] = "1"
+
 sumo_home = os.environ.get("SUMO_HOME") or PARAM_SUMO_HOME
 if sumo_home:
     tools = os.path.join(sumo_home, "tools")

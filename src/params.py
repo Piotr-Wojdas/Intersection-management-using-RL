@@ -12,6 +12,16 @@ USE_CUDA_IF_AVAILABLE = False
 # force a specific device. Leave as None to use automatic selection.
 DEVICE_OVERRIDE = None
 
+# --- Performance flags ---
+# Use LIBSUMO (C++ bindings) instead of TraCI (IPC) for ~2-5x faster simulation.
+# Requires libsumo installed: pip install libsumo
+# Must be True before any SUMO/traci import — setup_sumo.py sets the env var.
+USE_LIBSUMO = True 
+
+# Compile PPO networks with torch.compile (PyTorch 2.0+).
+# Uses 'aot_eager' backend — safe on Windows CPU, no triton required.
+# Falls back silently if unavailable.
+USE_TORCH_COMPILE = True
 # Optional path to the SUMO installation root.
 # If left as None, `src.setup_sumo` will try to detect common Windows install paths.
 SUMO_HOME = r"C:\Program Files (x86)\Eclipse\Sumo"

@@ -1,0 +1,38 @@
+=== Trening MAPPO (centralny krytyk) ===
+Plik wag: C:\Users\RODO\Desktop\Sys auto - Projekt\src\outputs\ppo_models_weights_3.pth
+Plik najlepszego modelu: C:\Users\RODO\Desktop\Sys auto - Projekt\src\outputs\ppo_models_weights_3_best.pth
+Plik punktu wznowienia: C:\Users\RODO\Desktop\Sys auto - Projekt\src\outputs\ppo_models_weights_3_resume.pth
+Plik logu: C:\Users\RODO\Desktop\Sys auto - Projekt\src\logs\trening_3.txt
+Domain randomization: pula 8 plików treningowych, held-out eval = city2_hard_eval.rou.xml
+Używam urządzenia: cpu | seed=42
+Aktorzy: 6 skrzyżowań (obs_dims={'J0': 21, 'J1': 24, 'J10': 18, 'J2': 27, 'J4': 23, 'J7': 22}); globalny krytyk: wejście 135.
+
+Uruchamiam epokę uczenia #1 | lr=0.000250 | entropy_coef=0.010000
+Nagroda per agent: J0=-3329.929, J1=-4752.520, J10=-2719.256, J2=-3218.964, J4=-6026.803, J7=-5184.839
+Srednia nagroda na agenta (zespolowa): -4205.385
+Diagnostyka: explained_var=0.194 | actor_loss=-0.0058 | critic_loss=3.9055 | entropia=0.501 | approx_KL=0.0003 | clip_frac=0.000 | grad_norm(aktor/krytyk)=0.16/20.31
+
+Uruchamiam epokę uczenia #2 | lr=0.000249 | entropy_coef=0.009977
+Nagroda per agent: J0=-3044.699, J1=-4579.512, J10=-2632.103, J2=-2706.186, J4=-6264.676, J7=-4287.633
+Srednia nagroda na agenta (zespolowa): -3919.135
+Diagnostyka: explained_var=0.733 | actor_loss=-0.0067 | critic_loss=3.9493 | entropia=0.494 | approx_KL=0.0001 | clip_frac=0.000 | grad_norm(aktor/krytyk)=0.17/28.30
+
+Uruchamiam epokę uczenia #3 | lr=0.000248 | entropy_coef=0.009953
+Nagroda per agent: J0=-2166.526, J1=-2803.417, J10=-1719.025, J2=-3804.264, J4=-4106.657, J7=-2767.232
+Srednia nagroda na agenta (zespolowa): -2894.520
+Diagnostyka: explained_var=0.849 | actor_loss=-0.0203 | critic_loss=1.9644 | entropia=0.502 | approx_KL=0.0001 | clip_frac=0.000 | grad_norm(aktor/krytyk)=0.16/13.20
+
+Uruchamiam epokę uczenia #4 | lr=0.000248 | entropy_coef=0.009930
+Nagroda per agent: J0=-668.736, J1=-549.891, J10=-519.836, J2=-1211.242, J4=-1286.278, J7=-609.655
+Srednia nagroda na agenta (zespolowa): -807.606
+Diagnostyka: explained_var=0.962 | actor_loss=0.0215 | critic_loss=0.3655 | entropia=0.495 | approx_KL=0.0002 | clip_frac=0.000 | grad_norm(aktor/krytyk)=0.17/4.16
+
+Uruchamiam epokę uczenia #5 | lr=0.000247 | entropy_coef=0.009906
+Nagroda per agent: J0=-740.052, J1=-682.926, J10=-481.837, J2=-793.431, J4=-1118.866, J7=-671.917
+Srednia nagroda na agenta (zespolowa): -748.171
+Diagnostyka: explained_var=0.967 | actor_loss=-0.0082 | critic_loss=0.2764 | entropia=0.496 | approx_KL=0.0012 | clip_frac=0.010 | grad_norm(aktor/krytyk)=0.18/1.39
+Ocena greedy: -2366.398 | sr. czekanie=12.5s | dojechalo=1729 | teleporty=13 | backlog na koncu=136
+Nowy najlepszy model: C:\Users\RODO\Desktop\Sys auto - Projekt\src\outputs\ppo_models_weights_3_best.pth (score=-2366.398)
+Zapisano punkt wznowienia (epoka 5).
+
+Uruchamiam epokę uczenia #6 | lr=0.000246 | entropy_coef=0.009883

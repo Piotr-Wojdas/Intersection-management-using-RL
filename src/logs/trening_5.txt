@@ -1,0 +1,7 @@
+=== Trening MAPPO (centralny krytyk) ===
+Plik wag: C:\Users\RODO\Desktop\Sys auto - Projekt\src\outputs\ppo_models_weights_5.pth
+Plik najlepszego modelu: C:\Users\RODO\Desktop\Sys auto - Projekt\src\outputs\ppo_models_weights_5_best.pth
+Plik punktu wznowienia: C:\Users\RODO\Desktop\Sys auto - Projekt\src\outputs\ppo_models_weights_5_resume.pth
+Plik logu: C:\Users\RODO\Desktop\Sys auto - Projekt\src\logs\trening_5.txt
+Domain randomization: pula 8 plików treningowych, held-out eval = city2_eval.rou.xml
+Używam urządzenia: cpu | seed=42

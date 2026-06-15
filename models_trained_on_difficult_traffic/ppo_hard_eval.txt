@@ -1,0 +1,16 @@
+Ewaluacja best | wagi: ppo_models_weights_2_best.pth
+Seedy: [42, 137, 271, 7, 99]
+Pliki tras: ['city2_hard_eval.rou.xml']
+
+[model]
+  city2_hard_eval.rou.xml seed=42: dojechalo=1879 | sr. czekanie=5.0s | backlog=93 | teleporty=3
+  city2_hard_eval.rou.xml seed=137: dojechalo=1908 | sr. czekanie=3.9s | backlog=57 | teleporty=2
+  city2_hard_eval.rou.xml seed=271: dojechalo=1906 | sr. czekanie=3.9s | backlog=54 | teleporty=1
+  city2_hard_eval.rou.xml seed=7: dojechalo=1901 | sr. czekanie=3.9s | backlog=65 | teleporty=1
+  city2_hard_eval.rou.xml seed=99: dojechalo=1893 | sr. czekanie=4.1s | backlog=71 | teleporty=5
+
+=== Srednia ± odchylenie — model (5 przejazdow) ===
+arrived: 1897.4 ± 10.6 (min 1879.0, max 1908.0)
+mean_waiting_time: 4.2 ± 0.4 (min 3.9, max 5.0)
+backlogged_end: 68.0 ± 13.9 (min 54.0, max 93.0)
+teleported: 2.4 ± 1.5 (min 1.0, max 5.0)
