@@ -1,0 +1,22 @@
+Weights file: outputs/ppo_models_weights_15.pth
+Log file: D:\Intersection_RL\Intersection-management-using-RL\src\logs\ewaluacja_11.txt
+WARNING: no weights at outputs/ppo_models_weights_15.pth. Running with random policy.
+Starting evaluation on city_map_2...
+[eval] step=100 running=23 backlogged=0 teleported=0 mean_wait=3.5652173913043477
+[eval] step=200 running=54 backlogged=0 teleported=2 mean_wait=21.833333333333332
+[eval] step=300 running=66 backlogged=23 teleported=6 mean_wait=58.333333333333336
+[eval] step=400 running=65 backlogged=35 teleported=6 mean_wait=74.93846153846154
+[eval] step=500 running=53 backlogged=49 teleported=9 mean_wait=67.84905660377359
+[eval] step=600 running=54 backlogged=69 teleported=12 mean_wait=50.425925925925924
+[eval] step=700 running=17 backlogged=40 teleported=15 mean_wait=24.705882352941178
+[eval] step=800 running=5 backlogged=0 teleported=17 mean_wait=31.6
+Evaluation complete.
+Steps taken: 800
+Agent J0 - total reward: -22.907
+Agent J1 - total reward: -58.462
+Agent J10 - total reward: -75.613
+Agent J2 - total reward: -3930.551
+Agent J4 - total reward: -87.538
+Agent J7 - total reward: -85.020
+Srednie czekanie (system): 46.0s
+Dojechalo: 1195 | teleporty: 17 | backlog na koncu: 0

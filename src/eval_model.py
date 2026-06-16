@@ -5,7 +5,7 @@ import time
 import numpy as np
 import torch
 
-from src.agent_ppo import PPOAgent, _action_mask_tensor, build_env
+from src.agent_dqn import DQNAgent as PPOAgent, _action_mask_tensor, build_env
 from src.params import (
     ROUTE_FILE_EASY,
     ROUTE_FILE_HARD,
@@ -27,7 +27,7 @@ def _load_checkpoint(weights_file_path: str, device: torch.device, log):
 
 
 def play(
-    use_gui: bool = True,
+    use_gui: bool = False,
     sleep_seconds: float = 0.15,
     weights_path: str | None = None,
     route_file: str | None = None,

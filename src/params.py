@@ -322,3 +322,17 @@ OBS_WAIT_NORM_SECONDS = 300
 # where `over = waiting_time - STANDING_WAIT_THRESHOLD`.
 EXPONENTIAL_WAIT_PENALTY = False
 EXP_WAIT_PENALTY_SCALE = 0.05
+
+# --- Hiperparametry DQN ---
+DQN_TOTAL_TIMESTEPS = 250_000        # Całkowita liczba kroków symulacji do wykonania
+DQN_BUFFER_CAPACITY = 50_000         # Pojemność bufora powtórek dla pojedynczego agenta
+DQN_BATCH_SIZE = 128                 # Rozmiar paczki pobieranej z bufora do treningu
+DQN_LEARNING_RATE = 2.5e-4           # Tempo uczenia sieci (Policy Network)
+DQN_TARGET_UPDATE_FREQ = 2000        # Co ile kroków symulacji aktualizować Target Network
+DQN_TRAIN_FREQ = 4                   # Co ile kroków symulacji uczyć sieć (backpropagation)
+DQN_START_LEARNING = 5000            # Krok symulacji, od którego agent zaczyna naukę (wcześniej tylko zbiera dane)
+
+# Parametry epsilon-greedy (eksploracja)
+DQN_EPSILON_START = 1.0              # Początkowe prawdopodobieństwo losowej akcji (100%)
+DQN_EPSILON_END = 0.05               # Minimalne prawdopodobieństwo losowej akcji (5%)
+DQN_EPSILON_DECAY_STEPS = 100_000    # Przez ile kroków epsilon ma liniowo spadać do wartości minimalnej

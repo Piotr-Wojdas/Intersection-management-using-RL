@@ -1,0 +1,3 @@
+Rozpoczynam trening DQN (run 11) | Urządzenie: cpu
+
+Przerwano przez użytkownika. Symulacja zatrzymana.

@@ -1,0 +1,9 @@
+Weights file: outputs/ppo_models_weights_15.pth
+Log file: D:\Intersection_RL\Intersection-management-using-RL\src\logs\ewaluacja_10.txt
+WARNING: no weights at outputs/ppo_models_weights_15.pth. Running with random policy.
+Starting evaluation on city_map_2...
+[eval] step=100 running=34 backlogged=0 teleported=2 mean_wait=8.058823529411764
+[eval] step=200 running=132 backlogged=32 teleported=4 mean_wait=35.46969696969697
+[eval] step=300 running=254 backlogged=418 teleported=6 mean_wait=134.58661417322836
+[eval] step=400 running=268 backlogged=900 teleported=16 mean_wait=164.84328358208955
+[eval] step=500 running=245 backlogged=1106 teleported=25 mean_wait=82.03673469387755

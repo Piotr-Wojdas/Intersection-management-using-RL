@@ -1,0 +1,1 @@
+Rozpoczynam trening DQN (run 13) | Urządzenie: cuda

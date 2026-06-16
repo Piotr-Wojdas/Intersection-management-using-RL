@@ -1,0 +1,6 @@
+Rozpoczynam trening DQN (run 10) | Urządzenie: cpu
+Krok 4000/250000 | Epizod 5 | Śr. Nagroda/Agenta: -3339.62 | Epsilon: 0.962
+Krok 8000/250000 | Epizod 10 | Śr. Nagroda/Agenta: -1773.89 | Epsilon: 0.924
+Krok 12000/250000 | Epizod 15 | Śr. Nagroda/Agenta: -2086.03 | Epsilon: 0.886
+
+Przerwano przez użytkownika. Symulacja zatrzymana.

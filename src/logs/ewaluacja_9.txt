@@ -1,0 +1,2 @@
+Weights file: D:\Intersection_RL\Intersection-management-using-RL\src\outputs\ppo_models_weights_9_best.pth
+Log file: D:\Intersection_RL\Intersection-management-using-RL\src\logs\ewaluacja_9.txt
