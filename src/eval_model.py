@@ -68,7 +68,10 @@ def play(
             )
             if isinstance(state_dict, dict) and all(ts in state_dict for ts in ts_ids):
                 for ts in ts_ids:
-                    agents[ts].load_state_dict(state_dict[ts])
+                    ts_state = state_dict[ts]
+                    if any(k.startswith("_orig_mod.") for k in ts_state):
+                        ts_state = {k.removeprefix("_orig_mod."): v for k, v in ts_state.items()}
+                    agents[ts].load_state_dict(ts_state)
                 log(f"Loaded per-agent models from {weights_file_path}")
             else:
                 loaded = 0

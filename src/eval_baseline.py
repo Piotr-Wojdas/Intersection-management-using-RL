@@ -57,6 +57,8 @@ def main():
 
     apply_scenario(scenario_is_hard(args.scenario))
     seeds = args.seeds if args.seeds is not None else list(P.TRAIN_EVAL_SEED)
+    if args.show:
+        seeds = seeds[:1]
     routes = resolve_routes(args.routes)
     action_fn = fixed_action_fn if args.mode == "fixed" else max_pressure_action_fn
 

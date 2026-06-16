@@ -1,0 +1,10 @@
+Baseline: fixed
+Seedy: [42]
+Pliki tras: ['city2_hard_eval.rou.xml']
+  city2_hard_eval.rou.xml seed=42: dojechalo=966 | sr. czekanie=70.5s | backlog=840 | teleporty=56
+
+=== Srednia ± odchylenie — fixed (1 przejazdow) ===
+arrived: 966.0 ± 0.0 (min 966.0, max 966.0)
+mean_waiting_time: 70.5 ± 0.0 (min 70.5, max 70.5)
+backlogged_end: 840.0 ± 0.0 (min 840.0, max 840.0)
+teleported: 56.0 ± 0.0 (min 56.0, max 56.0)

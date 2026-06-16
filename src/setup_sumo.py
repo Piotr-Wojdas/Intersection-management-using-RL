@@ -19,7 +19,14 @@ except Exception:
     _USE_LIBSUMO = False
 
 # Must be set before traci/sumolib is imported (env.py reads this at module load).
-if _USE_LIBSUMO:
+# Exception: libsumo has no GUI support — if the caller requested --show 1, fall
+# back to TraCI (a separate sumo-gui process) so the visualisation works.
+_gui_requested = (
+    "--show" in sys.argv
+    and sys.argv.index("--show") + 1 < len(sys.argv)
+    and sys.argv[sys.argv.index("--show") + 1] == "1"
+)
+if _USE_LIBSUMO and not _gui_requested:
     os.environ["LIBSUMO_AS_TRACI"] = "1"
 
 sumo_home = os.environ.get("SUMO_HOME") or PARAM_SUMO_HOME

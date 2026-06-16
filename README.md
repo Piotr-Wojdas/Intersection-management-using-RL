@@ -195,12 +195,21 @@ logits, so every buffered action matches what SUMO actually executed.
 Per intersection, per step ([traffic_signal.py](src/Sumo/sumo_rl/environment/traffic_signal.py)):
 
 ```
-reward =  Δ(waiting time)                      # progress on clearing waits
-        - QUEUE_PENALTY_WEIGHT  · total_queue   # discourage standing queues
-        + standing_penalty                      # penalise long-waiting vehicles
-        + starvation_penalty                    # penalise growing lane imbalance
+reward =  Δ(waiting time)
+        - QUEUE_PENALTY_WEIGHT    · total_queued
+        - STANDING_PENALTY_WEIGHT · (standing_count  +  Δlane_imbalance / 100)
         clipped to [-20, 20]
 ```
+
+All four terms are subtracted (negative contributions to reward):
+- `Δ(waiting time)` is the **decrease** in total accumulated wait — positive when queues clear,
+  negative when they grow.
+- `total_queued` — number of halted vehicles on incoming lanes right now.
+- `standing_count` — vehicles whose individual waiting time exceeds `STANDING_WAIT_THRESHOLD`
+  (30 s = roughly one full signal cycle); penalises lane starvation.
+- `Δlane_imbalance` — step-wise increase in `max(lane_waits) − min(lane_waits)`; only applied
+  when imbalance is actively growing (Δ > 0), so a stable but uneven distribution is not
+  penalised, only a worsening one.
 
 ### Algorithm — Independent PPO
 

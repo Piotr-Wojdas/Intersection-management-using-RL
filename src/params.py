@@ -325,7 +325,7 @@ RESUME_SAVE_EVERY_UPDATES = 5
 # if they are not set here.
 ENV_CONFIG = {
     # Whether to launch SUMO GUI instead of headless simulation.
-    "use_gui": False,
+    "use_gui": True,
     # Total simulated seconds in one episode.
     "num_seconds": 4000,
     # Number of simulation seconds between decision points.
